@@ -1,7 +1,7 @@
 from typing import List, Optional, Union
 
-from habitat.config.default import Config as CN
 from habitat.config.default import (
+    Config as CN,
     get_config as _get_default_config,
     CONFIG_FILE_SEPARATOR
 )
