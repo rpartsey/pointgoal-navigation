@@ -1,0 +1,6 @@
+INPUT_TYPE: "depth"
+MODEL_PATH: "/home/rpartsey/code/3d-navigation/related_works/egolocalization/samyak_weights_v3/ckpt.43.pth"
+GOAL_SENSOR_UUID: "pointgoal"
+HIDDEN_SIZE: 512
+RNN_TYPE: "LSTM"
+NUM_RECURRENT_LAYERS: 2
