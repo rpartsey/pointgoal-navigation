@@ -1,18 +1,24 @@
+import copy
+import gzip
 import os
 import json
 import random
 import argparse
 import subprocess
+
+import cv2
 import quaternion
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
 from collections import defaultdict
+from itertools import groupby
 
 from agent import build_agent
 from environment import build_env
 from config import cfg_model, cfg_rl
 from habitat_extensions.config.default import get_config as cfg_env
+
 
 action_map_old = {
     0: "MOVE_FORWARD",
@@ -26,6 +32,7 @@ action_map_new = {
     2: "TURN_LEFT",
     3: "TURN_RIGHT"
 }
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -103,22 +110,16 @@ def parse_args():
         default="../config_files/trajectory-sampling/rl_config.yaml",
         help="path to config yaml containing information about RL params",
     )
+    parser.add_argument("--max-pts-per-scene", type=int, default=300)
     parser.add_argument("--seed", type=int, default=100)
     args = parser.parse_args()
+
     return args
 
-def load_scene_wise_episode_cnt_stats(args):
-    json_path = os.path.join(
-        args.data_dir,
-        "scene_wise_episode_cnt_stats_{}.json".format(args.split)
-    )
-    if os.path.isfile(json_path):
-        with open(json_path) as f: data = json.load(f)
-        return data
-    return None
 
 def get_scene_name_from_scene_id(scene_id):
     return scene_id.strip().split("/")[-1].split(".")[0]
+
 
 def get_scene_folder_path_from_scene_name(args, scene_name):
     return os.path.join(
@@ -126,6 +127,7 @@ def get_scene_folder_path_from_scene_name(args, scene_name):
         args.split,
         scene_name
     )
+
 
 def create_folders_for_scene(args, scene_name):
     # args.data_dir already has dataset name appended to it
@@ -176,6 +178,7 @@ def get_frame_paths(
         ),
     )
 
+
 def get_depth_map_paths(
     args,
     scene_name,
@@ -204,9 +207,19 @@ def get_depth_map_paths(
         ),
     )
 
-if __name__=='__main__':
+
+def preprocess_observation(observation):
+    observation['rgb'] = cv2.resize(observation['rgb'], (256, 256), interpolation=cv2.cv2.INTER_LINEAR)
+    observation['depth'] = cv2.resize(observation['depth'], (256, 256), interpolation=cv2.cv2.INTER_LINEAR)
+    observation['depth'] = observation['depth'].reshape((256, 256, 1))
+
+    return observation
+
+
+if __name__ == '__main__':
     
     args = parse_args()
+    args.data_dir = os.path.join(args.data_dir, args.dataset)
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -217,56 +230,15 @@ if __name__=='__main__':
 
     env = build_env(env_config, rl_config, args)
     agent = build_agent(model_config, args)
-    
-    args.data_dir = os.path.join(args.data_dir, args.dataset)
-    scene_wise_episode_cnt_stats = load_scene_wise_episode_cnt_stats(
-        args
-    )
 
-    if scene_wise_episode_cnt_stats is None:
-        # generate + save the scene-wise episode count info
-        # (needed for computing sampling stats)
-        
-        print("Computing scene-wise episode count stats")
+    nav_episodes = env.habitat_env.episode_iterator.episodes
+    scene_wise_episode_cnt_stats = {
+        scene_id: {'n_episodes': len(list(scene_episodes))}
+        for scene_id, scene_episodes in groupby(nav_episodes, lambda e: e.scene_id)
+    }
 
-        scene_wise_episode_cnt_stats = {}
-        n_episodes = len(env.habitat_env.episodes)
-        for i in tqdm(range(n_episodes)):
-            observation = env.reset()
-            agent.reset()
-
-            curr_episode = env.habitat_env.current_episode
-            scene_id = env.habitat_env.current_episode.scene_id
-            episode_id = env.habitat_env.current_episode.episode_id
-
-            if scene_id not in scene_wise_episode_cnt_stats:
-                scene_wise_episode_cnt_stats[scene_id] = {
-                    "episode_ids": [],
-                    "n_episodes": -1
-                }
-            
-            scene_wise_episode_cnt_stats[scene_id]["episode_ids"].append(
-                episode_id
-            )
-        
-        for _, episode_info in scene_wise_episode_cnt_stats.items():
-            episode_info["n_episodes"] = len(
-                episode_info["episode_ids"]
-            )
-        
-        json_path = os.path.join(
-            args.data_dir,
-            "scene_wise_episode_cnt_stats_{}.json".format(args.split)
-        )
-        with open(json_path, "w") as f:
-            json.dump(scene_wise_episode_cnt_stats, f)
-    
-    else:
-        print("Loaded scene-wise episode count stats")
-
-    n_episodes = len(env.habitat_env.episodes)
     scene_name_to_dataset_map = defaultdict(list)
-    for i in tqdm(range(n_episodes)):
+    for i in tqdm(range(len(nav_episodes))):
 
         # 0. reset env + agent before start of episode
         observation = env.reset()
@@ -292,7 +264,7 @@ if __name__=='__main__':
             scene_wise_episode_cnt_stats[scene_id]["n_episodes"]
         )
         n_data_pts_to_sample_for_episode = (
-            int(np.ceil(1000./n_episodes_in_dset_for_this_scene))
+            int(np.ceil(args.max_pts_per_scene / n_episodes_in_dset_for_this_scene))
         )
 
         # 4. init episode-specific information buffers
@@ -304,7 +276,7 @@ if __name__=='__main__':
 
         # 5. roll-out episode
         while not env.habitat_env.episode_over:
-            # act
+            observation = preprocess_observation(observation)
             action = agent.act(observation)
             if agent.config.GOAL_SENSOR_UUID == "pointgoal":
                 observation, reward, _, info = env.step((action+1) % 4)
@@ -323,30 +295,9 @@ if __name__=='__main__':
         episode_spl = info["spl"]
 
         # 6. sample data points from within this episode
-        idxs = [x for x in range(n_steps_for_episode)]
+        idxs = list(range(n_steps_for_episode-1))  # subtract 1 to not sample last index
         random.shuffle(idxs)
         sample_idxs = idxs[:n_data_pts_to_sample_for_episode]
-
-        # make sure that the last action in the sequence doesn't get sampled
-        if any([idx == (n_steps_for_episode-1) for idx in sample_idxs]):
-            if agent.config.GOAL_SENSOR_UUID == "pointgoal":
-                idx_for_stop_action = buffer["actions"].index(3)
-            else:
-                idx_for_stop_action = buffer["actions"].index(0)
-
-            assert idx_for_stop_action in sample_idxs
-            idx_of_stop_in_sampled_idx_list = (
-                sample_idxs.index(idx_for_stop_action)
-            )
-
-            if n_steps_for_episode > n_data_pts_to_sample_for_episode:
-                rejected_idxs = idxs[n_data_pts_to_sample_for_episode:]
-                sample_idxs[idx_of_stop_in_sampled_idx_list] = (
-                    rejected_idxs[0]
-                )
-            else:
-                del sample_idxs[idx_of_stop_in_sampled_idx_list]
-
 
         # 7. for each data point, create a dataset entry
         data_pts_for_curr_episode = []
@@ -437,5 +388,5 @@ if __name__=='__main__':
             "{}.json".format(scene_name)
         )
         json_data = {"dataset": dataset}
-        with open(scene_json_path, "w") as f: json.dump(json_data, f)
-
+        with open(scene_json_path, "w") as f:
+            json.dump(json_data, f)
