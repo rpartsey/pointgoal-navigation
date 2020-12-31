@@ -14,6 +14,8 @@ from habitat.core.agent import Agent
 
 import ipdb
 
+from .ddppo_agents import DDPPOAgent
+
 
 def get_defaut_config():
     c = Config()
@@ -157,8 +159,5 @@ class PPOAgent(Agent):
         return actions[0][0].item()
 
 
-def build_agent(model_config, args):
-    model_config.defrost()
-    model_config.RANDOM_SEED = args.seed
-    model_config.freeze()
-    return PPOAgent(model_config)
+def build_agent(config):
+    return DDPPOAgent(config)

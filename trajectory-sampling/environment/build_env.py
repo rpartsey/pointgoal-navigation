@@ -3,54 +3,44 @@ import csv
 import ipdb
 import random
 
+from habitat_baselines.common.baseline_registry import baseline_registry
+
 from . import NavRLEnv
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 
 
-def get_gibson_scenes(env_config, args):
+def get_gibson_scenes(config):
     # get all scenes
     all_gibson_scenes = PointNavDatasetV1.get_scenes_to_load(
-        env_config.DATASET
+        config.DATASET
     )
 
     # filter by votes (only high-quality envs)
     filtered_gibson_scenes = filter_gibson_scenes_by_votes(
-        env_config,
         all_gibson_scenes,
-        args.gibson_votes_csv
+        config.DATASET.GIBSON_VOTES_CSV
     )
     assert len(filtered_gibson_scenes) > 0
     return filtered_gibson_scenes
 
 def filter_gibson_scenes_by_votes(
-    env_config,
     all_scenes,
     votes_csv_file,
     votes_thresh=4.0):
-    csv_file = csv.reader(open(votes_csv_file, "r"))
 
-    _ = next(csv_file)
-    gibson_scene_to_votes_map = {
-        row[0]: float(row[1])
-        for row in csv_file
-    }
+    with open(votes_csv_file, 'r') as f:
+        csv_file = csv.reader(f)
+        _ = next(csv_file)
+        gibson_scene_to_votes_map = {
+            row[0]: float(row[1])
+            for row in csv_file
+        }
 
-    if env_config.DATASET.SPLIT in ['val']:
-        all_scenes = [
-            scene.replace(".glb", "")
-            for scene in all_scenes
-        ]
-        filtered_gibson_scenes = [
-            ("{}.glb".format(scene), gibson_scene_to_votes_map[scene])
-            for scene in all_scenes
-            if gibson_scene_to_votes_map[scene] >= votes_thresh
-        ]
-    else:
-        filtered_gibson_scenes = [
-            (scene, gibson_scene_to_votes_map[scene])
-            for scene in all_scenes
-            if gibson_scene_to_votes_map[scene] >= votes_thresh
-        ]
+    filtered_gibson_scenes = [
+        (scene, gibson_scene_to_votes_map[scene])
+        for scene in all_scenes
+        if gibson_scene_to_votes_map[scene] >= votes_thresh
+    ]
 
     return filtered_gibson_scenes
 
@@ -65,65 +55,48 @@ def update_config_with_scene_names(env_config, scene_names):
     return env_config
 
 def get_pointnav_episodes_for_random_scene(
-    env_config,
+    config,
     filtered_gibson_scenes):
     
     # randomly sample a scene
     random.shuffle(filtered_gibson_scenes)
     scene, _ = filtered_gibson_scenes[0]
-    
-    env_config = update_config_with_scene_names(
-        env_config,
-        scene
-    )
-    dataset = PointNavDatasetV1(env_config.DATASET)
-    return env_config, dataset
+
+    config = update_config_with_scene_names(config, scene)
+    dataset = PointNavDatasetV1(config.DATASET)
+
+    return config, dataset
 
 def get_pointnav_episodes_for_all_scenes(
-    env_config,
+    config,
     filtered_gibson_scenes):
 
     random.shuffle(filtered_gibson_scenes)
     scene_names = [item[0] for item in filtered_gibson_scenes]
-    env_config = update_config_with_scene_names(
-        env_config,
-        scene_names
-    )
-    dataset = PointNavDatasetV1(env_config.DATASET)
-    return env_config, dataset
 
-def build_env(env_config, rl_config, args):
-    random.seed(args.seed)
-    filtered_gibson_scenes = get_gibson_scenes(env_config, args)
+    config = update_config_with_scene_names(config, scene_names)
+    dataset = PointNavDatasetV1(config.DATASET)
 
-    if args.single_scene_test:
+    return config, dataset
+
+def build_env(config):
+    random.seed(config.RANDOM_SEED)  # TODO: check if this line can be removed
+
+    task_config = config.TASK_CONFIG
+    filtered_gibson_scenes = get_gibson_scenes(task_config)
+    if task_config.DATASET.SINGLE_SCENE_TEST:
         env_config, dataset = get_pointnav_episodes_for_random_scene(
-            env_config,
+            task_config,
             filtered_gibson_scenes
         )
     else:
         env_config, dataset = get_pointnav_episodes_for_all_scenes(
-            env_config,
+            task_config,
             filtered_gibson_scenes
         )
-    
-    env_config.defrost()
-    env_config.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = args.sim_gpu_id
 
-    if "EGO_PREDICTION_POINTGOAL_SENSOR" in env_config.TASK.SENSORS:
-        sys.path.append("../../odometry")
-        from rl.sensors import PointGoalSensorWithEgoPredictions
-
-        env_config.TASK.EGO_PREDICTION_POINTGOAL_SENSOR.MODEL.GPU_ID = (
-            args.pth_gpu_id
-        )
-    env_config.freeze()
-    
-    env = NavRLEnv(
-        config_env=env_config,
-        config_baseline=rl_config,
-        dataset=dataset
-    )
-    env.seed(args.seed)
+    env_type = baseline_registry.get_env(config.ENV_NAME)
+    env = env_type(config, dataset)
+    env.seed(config.RANDOM_SEED)
 
     return env

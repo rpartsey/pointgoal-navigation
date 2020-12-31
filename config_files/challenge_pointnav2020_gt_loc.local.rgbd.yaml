@@ -43,7 +43,7 @@ TASK:
     GOAL_FORMAT: "POLAR"
     DIMENSIONALITY: 2
   GOAL_SENSOR_UUID: pointgoal_with_gps_compass
-  MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL']
+  MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL', 'COLLISIONS']
   SUCCESS:
     SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius
 
@@ -51,9 +51,3 @@ DATASET:
   TYPE: PointNav-v1
   SPLIT: train
   DATA_PATH: data/datasets/pointnav/gibson/v2/{split}/{split}.json.gz
-#  SCENES_DIR: "habitat-challenge-data/data/scene_datasets/"
-
-#DATASET:
-#  TYPE: PointNav-v1
-#  SPLIT: train
-#  DATA_PATH: data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz

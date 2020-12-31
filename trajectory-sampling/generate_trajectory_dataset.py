@@ -1,12 +1,9 @@
-import copy
-import gzip
 import os
 import json
 import random
 import argparse
 import subprocess
 
-import cv2
 import quaternion
 import numpy as np
 from PIL import Image
@@ -16,17 +13,10 @@ from itertools import groupby
 
 from agent import build_agent
 from environment import build_env
-from config import cfg_model, cfg_rl
-from habitat_extensions.config.default import get_config as cfg_env
+from habitat_baselines.config.default import get_config
 
 
-action_map_old = {
-    0: "MOVE_FORWARD",
-    1: "TURN_LEFT",
-    2: "TURN_RIGHT",
-    3: "STOP"
-}
-action_map_new = {
+ACTION_MAP = {
     0: "STOP",
     1: "MOVE_FORWARD",
     2: "TURN_LEFT",
@@ -38,36 +28,47 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--data-dir",
+        required=True,
         type=str,
-        default="/datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo/trajectory-noisy",
-        help="root directory for writing data/stats",
+        help="/datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo2/trajectory-noisy",
+    )
+    parser.add_argument(
+        "--config-file",
+        required=True,
+        type=str,
+        help="../config_files/ddppo/ddppo_pointnav.yaml",
+    )
+    parser.add_argument(
+        "--base-task-config-file",
+        required=True,
+        type=str,
+        help="../config_files/challenge_pointnav2020_gt_loc.local.rgbd.yaml",
+    )
+    parser.add_argument(
+        "--model-path",
+        required=True,
+        type=str,
+        help="/home/rpartsey/code/3d-navigation/related_works/egolocalization/checkpoints/pointnav2020_gt_loc_rgbd_ckpt.199.pth"
     )
     parser.add_argument(
         "--dataset",
+        required=True,
         type=str,
-        default="gibson",
         choices=["gibson", "mp3d"],
         help="dataset (gibson, mp3d)"
     )
     parser.add_argument(
         "--split",
+        required=True,
         type=str,
-        default="train",
         choices=["train", "val", "test"],
         help="dataset split"
     )
     parser.add_argument(
-        "--actuation-type",
-        type=str,
-        default="noiseless",
-        choices=["noiseless", "noisy"],
-        help="noiseless/noisy actuations",
-    )
-    parser.add_argument(
         "--gibson-votes-csv",
+        required=True,
         type=str,
-        default="data/datasets/pointnav/gibson/v1/gibson_quality_ratings.csv",
-        help="file with human votes for Gibson envs",
+        help="data/datasets/pointnav/gibson/v2/gibson_quality_ratings.csv",
     )
     parser.add_argument(
         "--single-scene-test",
@@ -87,31 +88,20 @@ def parse_args():
         help="gpu id on which scenes are loaded",
     )
     parser.add_argument(
-        "--pth-gpu-id",
+        "--torch-gpu-id",
         type=int,
-        default=1,
-        help="gpu id on which PyTorch tensors are loaded",
+        default=0,
     )
     parser.add_argument(
-        "--env-config",
-        type=str,
-        default="../config_files/challenge_pointnav2020.local.rgbd.yaml",
-        help="path to config yaml containing information about environment",
+        "--max-pts-per-scene",
+        type=int,
+        default=300
     )
     parser.add_argument(
-        "--model-config",
-        type=str,
-        default="../config_files/trajectory-sampling/model_config.yaml",
-        help="path to config yaml containing information about pre-trained models",
+        "--seed",
+        type=int,
+        default=100
     )
-    parser.add_argument(
-        "--rl-config",
-        type=str,
-        default="../config_files/trajectory-sampling/rl_config.yaml",
-        help="path to config yaml containing information about RL params",
-    )
-    parser.add_argument("--max-pts-per-scene", type=int, default=300)
-    parser.add_argument("--seed", type=int, default=100)
     args = parser.parse_args()
 
     return args
@@ -208,14 +198,6 @@ def get_depth_map_paths(
     )
 
 
-def preprocess_observation(observation):
-    observation['rgb'] = cv2.resize(observation['rgb'], (256, 256), interpolation=cv2.cv2.INTER_LINEAR)
-    observation['depth'] = cv2.resize(observation['depth'], (256, 256), interpolation=cv2.cv2.INTER_LINEAR)
-    observation['depth'] = observation['depth'].reshape((256, 256, 1))
-
-    return observation
-
-
 if __name__ == '__main__':
     
     args = parse_args()
@@ -224,12 +206,23 @@ if __name__ == '__main__':
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    env_config = cfg_env(config_paths=args.env_config)
-    model_config = cfg_model(config_paths=args.model_config)
-    rl_config = cfg_rl(config_paths=args.rl_config)
+    config = get_config(
+        args.config_file, ["BASE_TASK_CONFIG_PATH", args.base_task_config_file]
+    )
+    # override config values with command line arguments:
+    config.defrost()
+    config.INPUT_TYPE = 'rgbd'
+    config.MODEL_PATH = args.model_path
+    config.TORCH_GPU_ID = args.torch_gpu_id
+    config.RANDOM_SEED = args.seed
+    config.TASK_CONFIG.DATASET.SPLIT = args.split
+    config.TASK_CONFIG.DATASET.SINGLE_SCENE_TEST = args.single_scene_test
+    config.TASK_CONFIG.DATASET.GIBSON_VOTES_CSV = args.gibson_votes_csv
+    config.TASK_CONFIG.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = args.sim_gpu_id
+    config.freeze()
 
-    env = build_env(env_config, rl_config, args)
-    agent = build_agent(model_config, args)
+    env = build_env(config)
+    agent = build_agent(config)
 
     nav_episodes = env.habitat_env.episode_iterator.episodes
     scene_wise_episode_cnt_stats = {
@@ -257,7 +250,6 @@ if __name__ == '__main__':
         scene_name = get_scene_name_from_scene_id(scene_id)
         create_folders_for_scene(args, scene_name)
 
-
         # 3. get an estimate for the number of data points
         # to sample for this episode
         n_episodes_in_dset_for_this_scene = (
@@ -270,32 +262,31 @@ if __name__ == '__main__':
         # 4. init episode-specific information buffers
         buffer = defaultdict(list)
         buffer["observations"].append(observation)
-        buffer["sim_states"].append(
-            env.habitat_env.sim.get_agent_state()
-        )
+        buffer["sim_states"].append(env.habitat_env.sim.get_agent_state())
 
         # 5. roll-out episode
         while not env.habitat_env.episode_over:
-            observation = preprocess_observation(observation)
             action = agent.act(observation)
-            if agent.config.GOAL_SENSOR_UUID == "pointgoal":
-                observation, reward, _, info = env.step((action+1) % 4)
-            else:
-                observation, reward, _, info = env.step(action)
+            observation, reward, _, info = env.step(action=action)
 
             # update buffers
-            buffer["observations"].append(observation)
-            buffer["sim_states"].append(
-                env.habitat_env.sim.get_agent_state()
-            )
-            buffer["rewards"].append(reward)
             buffer["actions"].append(action)
+            buffer["observations"].append(observation)
+            buffer["sim_states"].append(env.habitat_env.sim.get_agent_state())
+            buffer["collisions"].append(info['collisions']['is_collision'])
 
-        n_steps_for_episode = env.habitat_env._elapsed_steps
-        episode_spl = info["spl"]
+        # episode stats:
+        n_episode_steps = env.habitat_env._elapsed_steps
+        episode_stats = {
+            'spl': info['spl'],
+            'softspl': info['softspl'],
+            'distance_to_goal': info['distance_to_goal'],
+            'n_steps': n_episode_steps,
+            'n_collisions': info['collisions']['count']
+        }
 
         # 6. sample data points from within this episode
-        idxs = list(range(n_steps_for_episode-1))  # subtract 1 to not sample last index
+        idxs = list(range(n_episode_steps-1))  # subtract 1 to not sample last index
         random.shuffle(idxs)
         sample_idxs = idxs[:n_data_pts_to_sample_for_episode]
 
@@ -303,16 +294,16 @@ if __name__ == '__main__':
         data_pts_for_curr_episode = []
         for idx in sample_idxs:
             window_size = np.random.randint(1, args.window_size+1)
-            if (idx + window_size) >= n_steps_for_episode:
-                window_size = (n_steps_for_episode - idx - 1)
+            if (idx + window_size) >= n_episode_steps:
+                window_size = (n_episode_steps - idx - 1)
             data = {
                 "dataset": args.dataset,
                 "scene": scene_name,
                 "episode_id": episode_id,
-                "n_steps": n_steps_for_episode,
+                "n_steps": n_episode_steps,
                 "step_idx": idx,
                 "window_size": window_size,
-                "spl": episode_spl,
+                **episode_stats
             }
 
             frame_s, frame_t = (
@@ -327,11 +318,8 @@ if __name__ == '__main__':
                 buffer["sim_states"][idx],
                 buffer["sim_states"][idx+window_size],
             )
-            action = buffer["actions"][idx:(idx+window_size)]
-            if agent.config.GOAL_SENSOR_UUID == "pointgoal":
-                data["action"] = [action_map_old[act] for act in action]
-            else:
-                data["action"] = [action_map_new[act] for act in action]
+            actions = buffer["actions"][idx:(idx+window_size)]
+            data["action"] = [ACTION_MAP[action] for action in actions]
 
             (
                 data["source_frame_path"],
