@@ -71,6 +71,17 @@ def parse_args():
         help="data/datasets/pointnav/gibson/v2/gibson_quality_ratings.csv",
     )
     parser.add_argument(
+        "--num-episode-sample",
+        required=True,
+        type=int,
+        help="number of episodes to sample",
+    )
+    parser.add_argument(
+        "--max-pts-per-scene",
+        type=int,
+        required=True,
+    )
+    parser.add_argument(
         "--single-scene-test",
         action='store_true',
         help="whether to test for episodes of a single, random scene",
@@ -91,11 +102,6 @@ def parse_args():
         "--torch-gpu-id",
         type=int,
         default=0,
-    )
-    parser.add_argument(
-        "--max-pts-per-scene",
-        type=int,
-        default=300
     )
     parser.add_argument(
         "--seed",
@@ -219,6 +225,8 @@ if __name__ == '__main__':
     config.TASK_CONFIG.DATASET.SINGLE_SCENE_TEST = args.single_scene_test
     config.TASK_CONFIG.DATASET.GIBSON_VOTES_CSV = args.gibson_votes_csv
     config.TASK_CONFIG.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = args.sim_gpu_id
+    config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
+    config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.NUM_EPISODE_SAMPLE = args.num_episode_sample
     config.freeze()
 
     env = build_env(config)
