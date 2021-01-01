@@ -1,0 +1,11 @@
+ENVIRONMENT:
+  MAX_EPISODE_STEPS: 500
+  ITERATOR_OPTIONS:
+    SHUFFLE: True
+    NUM_EPISODE_SAMPLE: 1440 # 72 x 20
+
+DATASET:
+  TYPE: PointNav-v1
+  SPLIT: train
+  DATA_PATH: data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz
+  SCENES_DIR: data/scene_datasets
