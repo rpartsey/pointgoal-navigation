@@ -198,7 +198,8 @@ def main():
     config.defrost()
     config.experiment_dir = os.path.join(config.log_dir, config.experiment_name)
     config.tb_dir = os.path.join(config.experiment_dir, 'tb')
-    config.model.save_path = os.path.join(config.experiment_dir, 'checkpoint.pt')
+    config.model.best_checkpoint_path = os.path.join(config.experiment_dir, 'best_checkpoint.pt')
+    config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
     config.self_path = config_path
     config.train.dataset.params.data_root = config.data_root
@@ -240,6 +241,9 @@ def main():
         write_metrics(epoch, val_metrics, val_writer)
 
         early_stopping(val_metrics['avg_weighted_loss'])
+        if config.model.save and early_stopping.counter == 0:
+            torch.save(model.state_dict(), config.model.best_checkpoint_path)
+            print('Saved best model checkpoint on disk.')
         if early_stopping.early_stop:
             print(f'Early stopping after {epoch} epochs.')
             break
@@ -249,6 +253,10 @@ def main():
 
     train_writer.close()
     val_writer.close()
+
+    if config.model.save:
+        torch.save(model.state_dict(), config.model.last_checkpoint_path)
+        print('Saved last model checkpoint on disk.')
 
 
 if __name__ == '__main__':
