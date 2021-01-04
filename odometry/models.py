@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+import torch
 import torch.nn as nn
 import torchvision.models as models
 
@@ -69,9 +70,9 @@ class VONetResnet18(VONetBaseModel):
             bias=default_conv1.bias
         )
 
-        default_fc = resnet18.fc
+        input_size = cls.compute_output_size(resnet18, config)
         fc = cls.create_fc_layers(
-            input_size=default_fc.in_features,
+            input_size=input_size,
             hidden_size=config.hidden_size,
             output_size=config.output_dim,
             p_dropout=config.p_dropout
@@ -81,3 +82,25 @@ class VONetResnet18(VONetBaseModel):
         del resnet18.fc
 
         return cls(resnet18, fc)
+
+    @staticmethod
+    def compute_output_size(encoder, config):
+        input_size = (1, config.in_channels, config.in_height, config.in_width)
+
+        encoder_input = torch.randn(*input_size)
+        with torch.no_grad():
+            x = encoder_input
+
+            x = encoder.conv1(x)
+            x = encoder.bn1(x)
+            x = encoder.relu(x)
+            x = encoder.maxpool(x)
+
+            x = encoder.layer1(x)
+            x = encoder.layer2(x)
+            x = encoder.layer3(x)
+            x = encoder.layer4(x)
+
+            output = x
+
+        return output.view(-1).size(0)

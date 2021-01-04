@@ -1,0 +1,59 @@
+experiment_name: smoke
+data_root: /datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo/trajectory-noisy
+log_dir: ./experiments
+epochs: 30
+device: cuda:0
+seed: 1
+
+train:
+  dataset:
+    type: EgoMotionDataset
+    params:
+      environment_dataset: gibson
+      split: train
+  loader:
+    type: DataLoader
+    params:
+      batch_size: 8
+      num_workers: 4
+      shuffle: True
+
+val:
+  dataset:
+    type: EgoMotionDataset
+    params:
+      environment_dataset: gibson
+      split: val
+  loader:
+    type: DataLoader
+    params:
+      batch_size: 8
+      num_workers: 4
+      shuffle: False
+
+model:
+  type: VONetResnet18
+  save: True
+  params:
+    pretrained: True
+    in_channels: 8
+    in_height: 360
+    in_width: 640
+    hidden_size: [512, 512]
+    output_dim: 4
+    p_dropout: 0
+
+loss:
+  type: PoseLoss
+  params:
+    alpha: 1.
+    beta: 10.
+
+optim:
+  type: Adam
+  params:
+    lr: 0.0001
+
+stopper:
+  params:
+    patience: 12
