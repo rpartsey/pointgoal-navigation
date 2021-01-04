@@ -75,7 +75,7 @@ class Normalize(object):
         return data
 
 
-def build_transform():
+def build_transforms():
     transform = Compose([
         ConvertToTensor(),
         PermuteChannels(),

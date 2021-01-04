@@ -12,7 +12,7 @@ train:
       environment_dataset: gibson
       split: train
   loader:
-    type: DataLoader
+    type: EgoDataLoader
     params:
       batch_size: 8
       num_workers: 4
@@ -25,7 +25,7 @@ val:
       environment_dataset: gibson
       split: val
   loader:
-    type: DataLoader
+    type: EgoDataLoader
     params:
       batch_size: 8
       num_workers: 4

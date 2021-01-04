@@ -58,11 +58,13 @@ class VONetResnet18(VONetBaseModel):
 
     @classmethod
     def from_config(cls, config):
+        model_params = config.params
+
         resnet18 = models.resnet18()
 
         default_conv1 = resnet18.conv1
         resnet18.conv1 = nn.Conv2d(
-            config.in_channels,
+            model_params.in_channels,
             default_conv1.out_channels,
             kernel_size=default_conv1.kernel_size,
             stride=default_conv1.stride,
@@ -70,12 +72,12 @@ class VONetResnet18(VONetBaseModel):
             bias=default_conv1.bias
         )
 
-        input_size = cls.compute_output_size(resnet18, config)
+        input_size = cls.compute_output_size(resnet18, model_params)
         fc = cls.create_fc_layers(
             input_size=input_size,
-            hidden_size=config.hidden_size,
-            output_size=config.output_dim,
-            p_dropout=config.p_dropout
+            hidden_size=model_params.hidden_size,
+            output_size=model_params.output_dim,
+            p_dropout=model_params.p_dropout
         )
 
         del resnet18.avgpool

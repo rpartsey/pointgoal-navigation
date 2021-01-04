@@ -1,5 +1,6 @@
 import os
 import shutil
+import argparse
 
 import numpy as np
 import random
@@ -8,13 +9,13 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 
-from odometry import optims
-from odometry import losses
-from odometry import models
-from odometry.dataset import dataset
-from odometry.early_stopping import EarlyStopping
+from odometry.utils.early_stopping import EarlyStopping
 from odometry.config.default import get_config
-from odometry.dataset.transforms import build_transform
+
+from odometry.models import make_model
+from odometry.dataset import make_dataset, make_data_loader
+from odometry.losses import make_loss
+from odometry.optims import make_optimizer
 
 
 def set_random_seed(seed):
@@ -175,7 +176,23 @@ def transform_batch(batch):
     return transformed_batch, target
 
 
-def main(config_path='./config_files/odometry/vonet_resnet.yaml'):
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--config-file',
+        required=True,
+        type=str,
+        help='path to the configuration file'
+    )
+    args = parser.parse_args()
+
+    return args
+
+
+def main():
+    args = parse_args()
+    config_path = args.config_file
+
     config = get_config(config_path, new_keys_allowed=True)
 
     config.defrost()
@@ -184,47 +201,26 @@ def main(config_path='./config_files/odometry/vonet_resnet.yaml'):
     config.model.save_path = os.path.join(config.experiment_dir, 'checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
     config.self_path = config_path
+    config.train.dataset.params.data_root = config.data_root
+    config.val.dataset.params.data_root = config.data_root
     config.freeze()
-
-    print(config)
 
     init_experiment(config)
     set_random_seed(config.seed)
 
-    transforms = build_transform()
-    dataset_type = getattr(dataset, config.train.dataset.type)
-    train_dataset = dataset_type(
-        data_root=config.data_root,
-        transforms=transforms,
-        **config.train.dataset.params
-    )
+    train_dataset = make_dataset(config.train.dataset)
+    train_loader = make_data_loader(config.train.loader, train_dataset)
 
-    data_loader_type = getattr(dataset, config.train.loader.type)
-    train_loader = data_loader_type(train_dataset, **config.train.loader.params)
-
-    transforms = build_transform()
-    dataset_type = getattr(dataset, config.val.dataset.type)
-    val_dataset = dataset_type(
-        data_root=config.data_root,
-        transforms=transforms,
-        **config.val.dataset.params
-    )
-
-    data_loader_type = getattr(dataset, config.val.loader.type)
-    val_loader = data_loader_type(val_dataset, **config.val.loader.params)
+    val_dataset = make_dataset(config.val.dataset)
+    val_loader = make_data_loader(config.val.loader, val_dataset)
 
     device = torch.device(config.device)
-    model_type = getattr(models, config.model.type)
-    model = model_type.from_config(
-        config.model.params
-    ).to(device)
+    model = make_model(config.model).to(device)
 
-    optimizer_type = getattr(optims, config.optim.type)
-    optimizer = optimizer_type(model.parameters(), **config.optim.params)
+    optimizer = make_optimizer(config.optim, model.parameters())
     scheduler = None
 
-    loss_type = getattr(losses, config.loss.type)
-    loss_f = loss_type(**config.loss.params)
+    loss_f = make_loss(config.loss)
 
     early_stopping = EarlyStopping(
         **config.stopper.params

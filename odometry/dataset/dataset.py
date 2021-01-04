@@ -3,8 +3,7 @@ from glob import glob
 import numpy as np
 from PIL import Image
 
-from torch.utils.data import Dataset, DataLoader # noqa
-
+from torch.utils.data import Dataset, DataLoader
 from odometry.dataset.utils import get_relative_egomotion
 
 
@@ -51,3 +50,25 @@ class EgoMotionDataset(Dataset):
 
     def __len__(self):
         return len(self.meta_data)
+
+    @classmethod
+    def from_config(cls, config, transforms):
+        dataset_params = config.params
+        return cls(
+            data_root=dataset_params.data_root,
+            environment_dataset=dataset_params.environment_dataset,
+            split=dataset_params.split,
+            transforms=transforms
+        )
+
+
+class EgoDataLoader(DataLoader):
+    @classmethod
+    def from_config(cls, config, dataset):
+        loader_params = config.params
+        return cls(
+            dataset=dataset,
+            batch_size=loader_params.batch_size,
+            num_workers=loader_params.num_workers,
+            shuffle=loader_params.shuffle,
+        )
