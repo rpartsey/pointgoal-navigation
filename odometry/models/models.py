@@ -1,24 +1,41 @@
-from abc import ABC, abstractmethod
-
 import torch
 import torch.nn as nn
-import torchvision.models as models
+from segmentation_models_pytorch.encoders import get_encoder
 
 
-class VONetBaseModel(nn.Module, ABC):
+class VONet(nn.Module):
     def __init__(self, encoder, fc):
         super().__init__()
         self.encoder = encoder
         self.fc = fc
 
-    @abstractmethod
     def forward(self, x):
-        pass
+        x = self.encoder(x)[-1]  # get last stage output
+        x = self.fc(x)
+
+        return x
 
     @classmethod
-    @abstractmethod
-    def from_config(cls, config):
-        pass
+    def from_config(cls, model_config):
+        model_params = model_config.params
+        encoder_params = model_params.encoder.params
+        fc_params = model_params.fc.params
+
+        encoder = get_encoder(
+            name=model_params.encoder.type,
+            in_channels=encoder_params.in_channels,
+            depth=encoder_params.depth,
+            weights=encoder_params.weights
+        )
+
+        fc = cls.create_fc_layers(
+            input_size=cls.compute_output_size(encoder, encoder_params),
+            hidden_size=fc_params.hidden_size,
+            output_size=fc_params.output_size,
+            p_dropout=fc_params.p_dropout
+        )
+
+        return cls(encoder, fc)
 
     @staticmethod
     def create_fc_layers(input_size: int, hidden_size: list, output_size: int, p_dropout: float = 0.0):
@@ -39,70 +56,12 @@ class VONetBaseModel(nn.Module, ABC):
             nn.Linear(hidden_size[-1], output_size)
         )
 
-
-class VONetResnet18(VONetBaseModel):
-    def forward(self, x):
-        x = self.encoder.conv1(x)
-        x = self.encoder.bn1(x)
-        x = self.encoder.relu(x)
-        x = self.encoder.maxpool(x)
-
-        x = self.encoder.layer1(x)
-        x = self.encoder.layer2(x)
-        x = self.encoder.layer3(x)
-        x = self.encoder.layer4(x)
-
-        x = self.fc(x)
-
-        return x
-
-    @classmethod
-    def from_config(cls, config):
-        model_params = config.params
-
-        resnet18 = models.resnet18()
-
-        default_conv1 = resnet18.conv1
-        resnet18.conv1 = nn.Conv2d(
-            model_params.in_channels,
-            default_conv1.out_channels,
-            kernel_size=default_conv1.kernel_size,
-            stride=default_conv1.stride,
-            padding=default_conv1.padding,
-            bias=default_conv1.bias
-        )
-
-        input_size = cls.compute_output_size(resnet18, model_params)
-        fc = cls.create_fc_layers(
-            input_size=input_size,
-            hidden_size=model_params.hidden_size,
-            output_size=model_params.output_dim,
-            p_dropout=model_params.p_dropout
-        )
-
-        del resnet18.avgpool
-        del resnet18.fc
-
-        return cls(resnet18, fc)
-
     @staticmethod
     def compute_output_size(encoder, config):
         input_size = (1, config.in_channels, config.in_height, config.in_width)
 
         encoder_input = torch.randn(*input_size)
         with torch.no_grad():
-            x = encoder_input
+            output = encoder(encoder_input)
 
-            x = encoder.conv1(x)
-            x = encoder.bn1(x)
-            x = encoder.relu(x)
-            x = encoder.maxpool(x)
-
-            x = encoder.layer1(x)
-            x = encoder.layer2(x)
-            x = encoder.layer3(x)
-            x = encoder.layer4(x)
-
-            output = x
-
-        return output.view(-1).size(0)
+        return output[-1].view(-1).size(0)

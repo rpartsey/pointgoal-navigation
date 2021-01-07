@@ -32,16 +32,24 @@ val:
       shuffle: False
 
 model:
-  type: VONetResnet18
+  type: VONet
   save: True
   params:
-    pretrained: True
-    in_channels: 8
-    in_height: 360
-    in_width: 640
-    hidden_size: [512, 512]
-    output_dim: 4
-    p_dropout: 0
+    encoder:
+      type: resnet18
+      params:
+        depth: 5
+        weights: null
+        in_channels: 8
+        in_height: 360
+        in_width: 640
+    fc:
+      params:
+        hidden_size: [512, 512]
+        output_size: 4
+        p_dropout: 0
+
+
 
 loss:
   type: PoseLoss
