@@ -243,7 +243,7 @@ def main():
         early_stopping(val_metrics['avg_weighted_loss'])
         if config.model.save and early_stopping.counter == 0:
             torch.save(model.state_dict(), config.model.best_checkpoint_path)
-            print('Saved best model checkpoint on disk.')
+            print('Saved best model checkpoint to disk.')
         if early_stopping.early_stop:
             print(f'Early stopping after {epoch} epochs.')
             break
@@ -256,7 +256,7 @@ def main():
 
     if config.model.save:
         torch.save(model.state_dict(), config.model.last_checkpoint_path)
-        print('Saved last model checkpoint on disk.')
+        print('Saved last model checkpoint to disk.')
 
 
 if __name__ == '__main__':
