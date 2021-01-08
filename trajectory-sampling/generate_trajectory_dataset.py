@@ -77,9 +77,14 @@ def parse_args():
         help="number of episodes to sample",
     )
     parser.add_argument(
+        "--pts-frac-per-episode",
+        type=float,
+        required=True,
+    )
+    parser.add_argument(
         "--max-pts-per-scene",
         type=int,
-        required=True,
+        default=-1,
     )
     parser.add_argument(
         "--single-scene-test",
@@ -252,27 +257,12 @@ if __name__ == '__main__':
             curr_episode.episode_id
         )
 
-        # 2. make sure that all the directories for
-        # saving image frames/depth maps are created on disk
-        # for this scene
-        scene_name = get_scene_name_from_scene_id(scene_id)
-        create_folders_for_scene(args, scene_name)
-
-        # 3. get an estimate for the number of data points
-        # to sample for this episode
-        n_episodes_in_dset_for_this_scene = (
-            scene_wise_episode_cnt_stats[scene_id]["n_episodes"]
-        )
-        n_data_pts_to_sample_for_episode = (
-            int(np.ceil(args.max_pts_per_scene / n_episodes_in_dset_for_this_scene))
-        )
-
-        # 4. init episode-specific information buffers
+        # 2. init episode-specific information buffers
         buffer = defaultdict(list)
         buffer["observations"].append(observation)
         buffer["sim_states"].append(env.habitat_env.sim.get_agent_state())
 
-        # 5. roll-out episode
+        # 3. roll-out episode
         while not env.habitat_env.episode_over:
             action = agent.act(observation)
             observation, reward, _, info = env.step(action=action)
@@ -293,10 +283,24 @@ if __name__ == '__main__':
             'n_collisions': info['collisions']['count']
         }
 
+        # 4. make sure that all the directories for
+        # saving image frames/depth maps are created on disk
+        # for this scene
+        scene_name = get_scene_name_from_scene_id(scene_id)
+        create_folders_for_scene(args, scene_name)
+
+        # 5. get an estimate for the number of data points
+        # to sample for this episode
+        n_pts_to_sample = int(np.ceil(args.pts_frac_per_episode * n_episode_steps))
+
+        if args.max_pts_per_scene != -1:
+            n_episodes_for_this_scene = scene_wise_episode_cnt_stats[scene_id]["n_episodes"]
+            n_pts_to_sample = int(np.ceil(args.max_pts_per_scene / n_episodes_for_this_scene))
+
         # 6. sample data points from within this episode
         idxs = list(range(n_episode_steps-1))  # subtract 1 to not sample last index
         random.shuffle(idxs)
-        sample_idxs = idxs[:n_data_pts_to_sample_for_episode]
+        sample_idxs = idxs[:n_pts_to_sample]
 
         # 7. for each data point, create a dataset entry
         data_pts_for_curr_episode = []
