@@ -311,6 +311,7 @@ if __name__ == '__main__':
                 "n_steps": n_episode_steps,
                 "step_idx": idx,
                 "window_size": window_size,
+                "collision": buffer["collisions"][idx],
                 **episode_stats
             }
 
@@ -326,6 +327,7 @@ if __name__ == '__main__':
                 buffer["sim_states"][idx],
                 buffer["sim_states"][idx+window_size],
             )
+
             actions = buffer["actions"][idx:(idx+window_size)]
             data["action"] = [ACTION_MAP[action] for action in actions]
 
