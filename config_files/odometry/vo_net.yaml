@@ -11,10 +11,22 @@ train:
     params:
       environment_dataset: gibson
       split: train
+    transforms:
+      ConvertToTensor:
+        params:
+      PermuteChannels:
+        params:
+      Resize:
+        params:
+          size: [360, 640]
+          interpolation: BILINEAR
+      Normalize:
+        params:
+
   loader:
     type: EgoDataLoader
     params:
-      batch_size: 8
+      batch_size: 16
       num_workers: 4
       shuffle: True
 
@@ -24,10 +36,21 @@ val:
     params:
       environment_dataset: gibson
       split: val
+    transforms:
+      ConvertToTensor:
+        params:
+      PermuteChannels:
+        params:
+      Resize:
+        params:
+          size: [360, 640]
+          interpolation: BILINEAR
+      Normalize:
+        params:
   loader:
     type: EgoDataLoader
     params:
-      batch_size: 8
+      batch_size: 16
       num_workers: 4
       shuffle: False
 

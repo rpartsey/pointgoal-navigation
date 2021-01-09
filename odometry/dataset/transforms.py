@@ -2,9 +2,11 @@ import numpy as np
 
 import torch
 from torchvision.transforms import Compose
+import torchvision.transforms as torch_transforms
+from PIL import Image
 
 
-class ConvertToTensor(object):
+class ConvertToTensor:
     def __call__(self, data):
         data = {
             k: (
@@ -46,7 +48,7 @@ class ConvertToTensor(object):
         return data
 
 
-class PermuteChannels(object):
+class PermuteChannels:
     def __call__(self, data):
         data = {
             k: (v.permute(2, 0, 1) if 'rgb' in k else v)
@@ -59,7 +61,7 @@ class PermuteChannels(object):
         return data
 
 
-class Normalize(object):
+class Normalize:
     def __call__(self, data):
         data = {
             k: (v / 255. if 'rgb' in k else v)
@@ -73,6 +75,17 @@ class Normalize(object):
         data['egomotion']['rotation'] = rotation
 
         return data
+
+
+class Resize:
+    def __init__(self, size, interpolation='BILINEAR'):
+        self.resize = torch_transforms.Resize(size, getattr(Image, interpolation))
+
+    def __call__(self, data):
+        return {
+            k: self.resize(v) if 'rgb' in k or 'depth' in k else v
+            for k, v in data.items()
+        }
 
 
 def build_transforms():
