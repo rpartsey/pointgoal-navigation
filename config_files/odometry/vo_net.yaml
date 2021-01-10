@@ -11,6 +11,7 @@ train:
     params:
       environment_dataset: gibson
       split: train
+      invert_rotations: False
     transforms:
       ConvertToTensor:
         params:
@@ -36,6 +37,7 @@ val:
     params:
       environment_dataset: gibson
       split: val
+      invert_rotations: False
     transforms:
       ConvertToTensor:
         params:
@@ -71,8 +73,6 @@ model:
         hidden_size: [512, 512]
         output_size: 4
         p_dropout: 0
-
-
 
 loss:
   type: PoseLoss

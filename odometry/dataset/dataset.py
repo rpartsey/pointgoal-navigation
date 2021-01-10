@@ -1,3 +1,4 @@
+import copy
 import json
 from glob import glob
 import numpy as np
@@ -8,15 +9,23 @@ from odometry.dataset.utils import get_relative_egomotion
 
 
 class EgoMotionDataset(Dataset):
-    def __init__(self, data_root, environment_dataset, split, transforms, num_points=None):
+    ROTATION_ACTIONS = ['TURN_LEFT', 'TURN_RIGHT']
+    INVERSE_ACTION = {
+        'TURN_LEFT': 'TURN_RIGHT',
+        'TURN_RIGHT': 'TURN_LEFT'
+    }
+
+    def __init__(self, data_root, environment_dataset, split, transforms, num_points=None, invert_rotations=False):
         super().__init__()
         self.data_root = data_root
         self.environment_dataset = environment_dataset
         self.split = split
         self.transforms = transforms
-        jsons = self._load_jsons()
-        num_points = num_points or len(jsons)
-        self.meta_data = jsons[:num_points]
+        self.jsons = self._load_jsons()
+        if invert_rotations:
+            self._add_inverse_rotations()
+        self.num_dataset_points = num_points or len(self.jsons)
+        self.meta_data = self.jsons[:num_points]
 
     def _load_jsons(self):
         data = []
@@ -28,6 +37,21 @@ class EgoMotionDataset(Dataset):
             data += scene_content['dataset']
 
         return data
+
+    def _add_inverse_rotations(self):
+        new_jsons = []
+        for item in self.jsons:
+            new_jsons.append(item)
+            action = item['action'][0]
+            if action in self.ROTATION_ACTIONS:
+                inv = copy.deepcopy(item)
+                inv['action'][0] = self.INVERSE_ACTION[action]
+                inv = self._swap_values(inv, 'source_frame_path', 'target_frame_path')
+                inv = self._swap_values(inv, 'source_depth_map_path', 'target_depth_map_path')
+                inv = self._swap_values(inv, 'source_agent_state', 'target_agent_state')
+                new_jsons.append(inv)
+
+        self.jsons = new_jsons
 
     def __getitem__(self, index):
         meta = self.meta_data[index]
@@ -53,6 +77,12 @@ class EgoMotionDataset(Dataset):
     def __len__(self):
         return len(self.meta_data)
 
+    @staticmethod
+    def _swap_values(item, k1, k2):
+        item[k1], item[k2] = item[k2], item[k1]
+
+        return item
+
     @classmethod
     def from_config(cls, config, transforms):
         dataset_params = config.params
@@ -61,7 +91,8 @@ class EgoMotionDataset(Dataset):
             environment_dataset=dataset_params.environment_dataset,
             split=dataset_params.split,
             transforms=transforms,
-            num_points=dataset_params.num_points
+            num_points=dataset_params.num_points,
+            invert_rotations=dataset_params.invert_rotations
         )
 
 

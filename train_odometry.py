@@ -168,6 +168,11 @@ def parse_args():
         default=None,
         help='number of items to form a dataset'
     )
+    parser.add_argument(
+        '--invert-rotations',
+        action='store_true',
+        help='indicates whether to invert rotation actions'
+    )
     args = parser.parse_args()
 
     return args
@@ -187,9 +192,11 @@ def main():
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
     config.self_path = config_path
     config.train.dataset.params.data_root = config.data_root
-    config.val.dataset.params.data_root = config.data_root
     config.train.dataset.params.num_points = args.num_dataset_items
+    config.train.dataset.params.invert_rotations = args.invert_rotations
+    config.val.dataset.params.data_root = config.data_root
     config.val.dataset.params.num_points = args.num_dataset_items
+    config.val.dataset.params.invert_rotations = args.invert_rotations
     config.freeze()
 
     init_experiment(config)
