@@ -1,7 +1,8 @@
+from torchvision.transforms import Compose
+
 from . import dataset as dataset_module
 from . import transforms as transforms_module
-from .transforms import build_transforms
-from torchvision.transforms import Compose
+from . import samplers as samplers_module
 
 
 def make_transforms(transforms_config):
@@ -9,6 +10,17 @@ def make_transforms(transforms_config):
         getattr(transforms_module, transform_type)(**(config.params if config.params else {}))
         for transform_type, config in transforms_config.items()
     ])
+
+
+def make_sampler(loader_config, dataset):
+    sampler_name = loader_config.params.sampler
+    if sampler_name:
+        sampler_type = getattr(samplers_module, sampler_name)
+        sampler = sampler_type(dataset)
+    else:
+        sampler = None
+
+    return sampler
 
 
 def make_dataset(dataset_config):
@@ -24,10 +36,13 @@ def make_dataset(dataset_config):
 
 
 def make_data_loader(loader_config, dataset):
+    sampler = make_sampler(loader_config, dataset)
+
     data_loader_type = getattr(dataset_module, loader_config.type)
     loader = data_loader_type.from_config(
         loader_config,
-        dataset
+        dataset,
+        sampler
     )
 
     return loader

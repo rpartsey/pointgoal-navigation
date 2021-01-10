@@ -1,7 +1,6 @@
 import numpy as np
 
 import torch
-from torchvision.transforms import Compose
 import torchvision.transforms as torch_transforms
 from PIL import Image
 
@@ -86,12 +85,3 @@ class Resize:
             k: self.resize(v) if 'rgb' in k or 'depth' in k else v
             for k, v in data.items()
         }
-
-
-def build_transforms():
-    transform = Compose([
-        ConvertToTensor(),
-        PermuteChannels(),
-        Normalize()
-    ])
-    return transform

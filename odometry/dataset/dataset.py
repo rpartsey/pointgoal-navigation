@@ -53,6 +53,11 @@ class EgoMotionDataset(Dataset):
 
         self.jsons = new_jsons
 
+    def get_label(self, index):
+        meta = self.meta_data[index]
+
+        return meta['action'][0]
+
     def __getitem__(self, index):
         meta = self.meta_data[index]
 
@@ -98,11 +103,12 @@ class EgoMotionDataset(Dataset):
 
 class EgoDataLoader(DataLoader):
     @classmethod
-    def from_config(cls, config, dataset):
+    def from_config(cls, config, dataset, sampler):
         loader_params = config.params
         return cls(
             dataset=dataset,
             batch_size=loader_params.batch_size,
             num_workers=loader_params.num_workers,
             shuffle=loader_params.shuffle,
+            sampler=sampler
         )

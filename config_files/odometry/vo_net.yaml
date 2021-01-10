@@ -23,13 +23,13 @@ train:
           interpolation: BILINEAR
       Normalize:
         params:
-
   loader:
     type: EgoDataLoader
     params:
       batch_size: 16
       num_workers: 4
       shuffle: True
+      sampler: null
 
 val:
   dataset:
@@ -55,6 +55,7 @@ val:
       batch_size: 16
       num_workers: 4
       shuffle: False
+      sampler: null
 
 model:
   type: VONet
