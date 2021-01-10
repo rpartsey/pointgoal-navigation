@@ -12,15 +12,17 @@ class PoseLoss(nn.Module):
     def forward(self, pred_pose, true_pose):
         batch_size = true_pose.shape[0]
 
-        true_location = true_pose[:, :3]
-        true_orientation = true_pose[:, 3]
-        pred_location = pred_pose[:, :3]
-        pred_orientation = pred_pose[:, 3]
+        true_location = true_pose[:, :-1]
+        true_orientation = true_pose[:, -1]
+        pred_location = pred_pose[:, :-1]
+        pred_orientation = pred_pose[:, -1]
 
         location_loss = self.mse(pred_location, true_location) / batch_size
         orientation_loss = (1. - torch.cos(pred_orientation - true_orientation)).mean()
 
-        return self.alpha * location_loss + self.beta * orientation_loss, location_loss, orientation_loss
+        pose_loss = self.alpha * location_loss + self.beta * orientation_loss
+
+        return pose_loss, location_loss, orientation_loss
 
 
 class MSELoss(nn.Module):
