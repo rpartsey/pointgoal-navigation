@@ -8,13 +8,15 @@ from odometry.dataset.utils import get_relative_egomotion
 
 
 class EgoMotionDataset(Dataset):
-    def __init__(self, data_root, environment_dataset, split, transforms):
+    def __init__(self, data_root, environment_dataset, split, transforms, num_points=None):
         super().__init__()
         self.data_root = data_root
         self.environment_dataset = environment_dataset
         self.split = split
         self.transforms = transforms
-        self.meta_data = self._load_jsons()
+        jsons = self._load_jsons()
+        num_points = num_points or len(jsons)
+        self.meta_data = jsons[:num_points]
 
     def _load_jsons(self):
         data = []
@@ -58,7 +60,8 @@ class EgoMotionDataset(Dataset):
             data_root=dataset_params.data_root,
             environment_dataset=dataset_params.environment_dataset,
             split=dataset_params.split,
-            transforms=transforms
+            transforms=transforms,
+            num_points=dataset_params.num_points
         )
 
 

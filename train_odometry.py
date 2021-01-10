@@ -161,6 +161,13 @@ def parse_args():
         type=str,
         help='path to the configuration file'
     )
+    parser.add_argument(
+        '--num-dataset-items',
+        required=False,
+        type=int,
+        default=None,
+        help='number of items to form a dataset'
+    )
     args = parser.parse_args()
 
     return args
@@ -181,6 +188,8 @@ def main():
     config.self_path = config_path
     config.train.dataset.params.data_root = config.data_root
     config.val.dataset.params.data_root = config.data_root
+    config.train.dataset.params.num_points = args.num_dataset_items
+    config.val.dataset.params.num_points = args.num_dataset_items
     config.freeze()
 
     init_experiment(config)
