@@ -1,6 +1,7 @@
 import os
 import shutil
 import argparse
+from collections import defaultdict
 
 import numpy as np
 import random
@@ -26,26 +27,20 @@ def set_random_seed(seed):
 
 
 def print_metrics(phase, metrics):
-    avg_weighted_loss = metrics['avg_weighted_loss']
-    avg_loc_loss = metrics['avg_loc_loss']
-    avg_orient_loss = metrics['avg_orient_loss']
+    loss = metrics.pop('loss')
 
-    print(
-        '{:6}'
-        'weighted_loss: {:.6f} \t'
-        'location_loss: {:.6f} \t'
-        'orientation_loss: {:.6f}'.format(phase, avg_weighted_loss, avg_loc_loss, avg_orient_loss)
-    )
+    loss_log_str = '{:6}loss: {:.6f}'.format(phase, loss)
+    other_metrics_log_str = ' '.join([
+        '{}: {:.6f}'.format(k, v)
+        for k, v in metrics.items()
+    ])
+
+    print(f'{loss_log_str} {other_metrics_log_str}')
 
 
 def write_metrics(epoch, metrics, writer):
-    avg_weighted_loss = metrics['avg_weighted_loss']
-    avg_loc_loss = metrics['avg_loc_loss']
-    avg_orient_loss = metrics['avg_orient_loss']
-
-    writer.add_scalar('metrics/weighted_loss', avg_weighted_loss, epoch)
-    writer.add_scalar('metrics/location_loss', avg_loc_loss, epoch)
-    writer.add_scalar('metrics/orientation_loss', avg_orient_loss, epoch)
+    for k, v in metrics.items():
+        writer.add_scalar(f'metrics/{k}', v, epoch)
 
 
 def init_experiment(config):
@@ -70,9 +65,7 @@ def init_experiment(config):
 def train(model, optimizer, train_loader, loss_f, device):
     model.train()
 
-    total_weighted_loss = 0
-    total_loc_loss = 0
-    total_orient_loss = 0
+    metrics = defaultdict(lambda: 0)
 
     for data in tqdm(train_loader):
         data, target = transform_batch(data)
@@ -80,27 +73,20 @@ def train(model, optimizer, train_loader, loss_f, device):
         target = target.to(device).float()
 
         output = model(data)
-        weighted_loss, loc_loss, orient_loss = loss_f(output, target)
+        loss, loss_components = loss_f(output, target)
 
         optimizer.zero_grad()
-        weighted_loss.backward()
+        loss.backward()
         optimizer.step()
 
         batch_size = target.shape[0]
-        total_weighted_loss += weighted_loss.item() * batch_size
-        total_loc_loss += loc_loss.item() * batch_size
-        total_orient_loss += orient_loss.item() * batch_size
+        metrics['loss'] += loss.item() * batch_size
+        for loss_component, value in loss_components.items():
+            metrics[loss_component] += value.item() * batch_size
 
     dataset_length = len(train_loader.dataset)
-    avg_weighted_loss = total_weighted_loss / dataset_length
-    avg_loc_loss = total_loc_loss / dataset_length
-    avg_orient_loss = total_orient_loss / dataset_length
-
-    metrics = {
-        'avg_weighted_loss': avg_weighted_loss,
-        'avg_loc_loss': avg_loc_loss,
-        'avg_orient_loss': avg_orient_loss
-    }
+    for metric_name in metrics:
+        metrics[metric_name] /= dataset_length
 
     return metrics
 
@@ -108,9 +94,7 @@ def train(model, optimizer, train_loader, loss_f, device):
 def val(model, val_loader, loss_f, device):
     model.eval()
 
-    total_weighted_loss = 0
-    total_loc_loss = 0
-    total_orient_loss = 0
+    metrics = defaultdict(lambda: 0)
 
     with torch.no_grad():
         for data in tqdm(val_loader):
@@ -119,23 +103,16 @@ def val(model, val_loader, loss_f, device):
             target = target.to(device).float()
 
             output = model(data)
-            weighted_loss, loc_loss, orient_loss = loss_f(output, target)
+            loss, loss_components = loss_f(output, target)
 
             batch_size = target.shape[0]
-            total_weighted_loss += weighted_loss.item() * batch_size
-            total_loc_loss += loc_loss.item() * batch_size
-            total_orient_loss += orient_loss.item() * batch_size
+            metrics['loss'] += loss.item() * batch_size
+            for loss_component, value in loss_components.items():
+                metrics[loss_component] += value.item() * batch_size
 
     dataset_length = len(val_loader.dataset)
-    avg_weighted_loss = total_weighted_loss / dataset_length
-    avg_loc_loss = total_loc_loss / dataset_length
-    avg_orient_loss = total_orient_loss / dataset_length
-
-    metrics = {
-        'avg_weighted_loss': avg_weighted_loss,
-        'avg_loc_loss': avg_loc_loss,
-        'avg_orient_loss': avg_orient_loss
-    }
+    for metric_name in metrics:
+        metrics[metric_name] /= dataset_length
 
     return metrics
 
@@ -233,12 +210,12 @@ def main():
     for epoch in range(1, config.epochs + 1):
         print(f'Epoch {epoch}')
         train_metrics = train(model, optimizer, train_loader, loss_f, device)
-        print_metrics('Train', train_metrics)
         write_metrics(epoch, train_metrics, train_writer)
+        print_metrics('Train', train_metrics)
 
         val_metrics = val(model, val_loader, loss_f, device)
-        print_metrics('Val', val_metrics)
         write_metrics(epoch, val_metrics, val_writer)
+        print_metrics('Val', val_metrics)
 
         early_stopping(val_metrics['avg_weighted_loss'])
         if config.model.save and early_stopping.counter == 0:

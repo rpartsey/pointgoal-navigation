@@ -21,8 +21,12 @@ class PoseLoss(nn.Module):
         orientation_loss = (1. - torch.cos(pred_orientation - true_orientation)).mean()
 
         pose_loss = self.alpha * location_loss + self.beta * orientation_loss
+        meta = {
+            'location_loss': location_loss,
+            'orientation_loss': orientation_loss
+        }
 
-        return pose_loss, location_loss, orientation_loss
+        return pose_loss, meta
 
 
 class MSELoss(nn.Module):
@@ -34,8 +38,9 @@ class MSELoss(nn.Module):
         batch_size = true_pose.shape[0]
 
         pose_loss = self.mse(pred_pose, true_pose) / batch_size
+        meta = {}
 
-        return pose_loss
+        return pose_loss, meta
 
 
 class HuberLoss(nn.Module):
@@ -45,5 +50,6 @@ class HuberLoss(nn.Module):
 
     def forward(self, pred_pose, true_pose):
         pose_loss = self.huber_loss(pred_pose, true_pose)
+        meta = {}
 
-        return pose_loss
+        return pose_loss, meta
