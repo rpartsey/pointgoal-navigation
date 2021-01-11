@@ -233,7 +233,7 @@ def main():
         write_metrics(epoch, val_metrics, val_writer)
         print_metrics('Val', val_metrics)
 
-        early_stopping(val_metrics['avg_weighted_loss'])
+        early_stopping(val_metrics['loss'])
         if config.model.save and early_stopping.counter == 0:
             torch.save(model.state_dict(), config.model.best_checkpoint_path)
             print('Saved best model checkpoint to disk.')
