@@ -35,6 +35,7 @@ def print_metrics(phase, metrics):
         for k, v in metrics.items()
     ])
 
+    metrics['loss'] = loss
     print(f'{loss_log_str} {other_metrics_log_str}')
 
 
