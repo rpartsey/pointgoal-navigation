@@ -12,6 +12,7 @@ train:
       environment_dataset: gibson
       split: train
       invert_rotations: False
+      d_depth_channels: 0
     transforms:
       ConvertToTensor:
         params:
@@ -38,6 +39,7 @@ val:
       environment_dataset: gibson
       split: val
       invert_rotations: False
+      d_depth_channels: 0
     transforms:
       ConvertToTensor:
         params:
