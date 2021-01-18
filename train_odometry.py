@@ -131,6 +131,12 @@ def transform_batch(batch):
     source_input += [source_depth_maps]
     target_input += [target_depth_maps]
 
+    if all(key in batch for key in ['source_depth_discretized', 'target_depth_discretized']):
+        source_d_depth = batch['source_depth_discretized']
+        target_d_depth = batch['target_depth_discretized']
+        source_input += [source_d_depth]
+        target_input += [target_d_depth]
+
     concat_source_input = torch.cat(source_input, 1)
     concat_target_input = torch.cat(target_input, 1)
     transformed_batch = torch.cat(

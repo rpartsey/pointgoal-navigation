@@ -107,6 +107,8 @@ class EgoMotionDataset(Dataset):
     def discretize_depth(channel, n_bins=5):
         min_v, max_v = channel.min(), channel.max()
         bins = np.linspace(min_v, max_v, num=n_bins + 1, endpoint=True)
+        bins[-1] += np.finfo(bins.dtype).eps
+
         lower_b = bins[:-1]
         upper_b = bins[1:]
 
