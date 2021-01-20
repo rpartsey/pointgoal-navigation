@@ -60,7 +60,8 @@ def init_experiment(config):
         shutil.rmtree(config.experiment_dir)
 
     os.makedirs(config.experiment_dir)
-    shutil.copy(config.self_path, config.config_save_path)
+    with open(config.config_save_path, 'w') as dest_file:
+        config.dump(stream=dest_file)
 
 
 def train(model, optimizer, train_loader, loss_f, device):
@@ -197,7 +198,6 @@ def main():
     config.model.best_checkpoint_path = os.path.join(config.experiment_dir, 'best_checkpoint.pt')
     config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
-    config.self_path = config_path
     config.train.dataset.params.data_root = config.data_root
     config.train.dataset.params.num_points = args.num_dataset_items
     config.train.dataset.params.invert_rotations = args.invert_rotations
