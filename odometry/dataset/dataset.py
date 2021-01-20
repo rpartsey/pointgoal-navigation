@@ -84,12 +84,6 @@ class EgoMotionDataset(Dataset):
             'action': meta['action'][0],
             'egomotion': get_relative_egomotion(meta),
         }
-        if self.d_depth_channels > 0:
-            item.update({
-                'source_depth_discretized': self.discretize_depth(source_depth, n_bins=self.d_depth_channels),
-                'target_depth_discretized': self.discretize_depth(target_depth, n_bins=self.d_depth_channels)
-            })
-
         item = self.transforms(item)
 
         return item
@@ -102,20 +96,6 @@ class EgoMotionDataset(Dataset):
         item[k1], item[k2] = item[k2], item[k1]
 
         return item
-
-    @staticmethod
-    def discretize_depth(channel, n_bins=5):
-        min_v, max_v = channel.min(), channel.max()
-        bins = np.linspace(min_v, max_v, num=n_bins + 1, endpoint=True)
-        bins[-1] += np.finfo(bins.dtype).eps
-
-        lower_b = bins[:-1]
-        upper_b = bins[1:]
-
-        repeated_channel = channel.repeat(n_bins, axis=2)
-        onehot_channel = np.logical_and(lower_b <= repeated_channel, repeated_channel < upper_b).astype(channel.dtype)
-
-        return onehot_channel
 
     @classmethod
     def from_config(cls, config, transforms):
