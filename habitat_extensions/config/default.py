@@ -6,8 +6,19 @@ from habitat.config.default import (
     CONFIG_FILE_SEPARATOR
 )
 
+# -----------------------------------------------------------------------------
+# Config extensions
+# -----------------------------------------------------------------------------
 _C = _get_default_config()
 _C.defrost()
+# -----------------------------------------------------------------------------
+# POINTGOAL WITH EGO-PREDICTIONS SENSOR
+# -----------------------------------------------------------------------------
+_C.TASK.POINTGOAL_WITH_EGO_PREDICTION_SENSOR = _C.TASK.POINTGOAL_SENSOR.clone()
+_C.TASK.POINTGOAL_WITH_EGO_PREDICTION_SENSOR.TYPE = (
+    'PointGoalWithEgoPredictionsSensor'
+)
+# -----------------------------------------------------------------------------
 
 
 def get_config(
