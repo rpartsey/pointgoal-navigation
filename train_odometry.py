@@ -148,15 +148,18 @@ def transform_batch(batch):
         1
     )
 
-    translation = batch['egomotion']['translation']
-    rotation = batch['egomotion']['rotation'].view(translation.shape[0], -1)
-    target = torch.cat(
-        [
-            translation,
-            rotation
-        ],
-        1
-    )
+    if 'egomotion' in batch:
+        translation = batch['egomotion']['translation']
+        rotation = batch['egomotion']['rotation'].view(translation.shape[0], -1)
+        target = torch.cat(
+            [
+                translation,
+                rotation
+            ],
+            1
+        )
+    else:
+        target = None
 
     return transformed_batch, target
 
