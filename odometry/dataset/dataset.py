@@ -23,14 +23,12 @@ class EgoMotionDataset(Dataset):
             transforms,
             num_points=None,
             invert_rotations=False,
-            d_depth_channels=0
     ):
         super().__init__()
         self.data_root = data_root
         self.environment_dataset = environment_dataset
         self.split = split
         self.transforms = transforms
-        self.d_depth_channels = d_depth_channels
         self.jsons = self._load_jsons()
         if invert_rotations:
             self._add_inverse_rotations()
@@ -106,8 +104,7 @@ class EgoMotionDataset(Dataset):
             split=dataset_params.split,
             transforms=transforms,
             num_points=dataset_params.num_points,
-            invert_rotations=dataset_params.invert_rotations,
-            d_depth_channels=dataset_params.d_depth_channels
+            invert_rotations=dataset_params.invert_rotations
         )
 
 
