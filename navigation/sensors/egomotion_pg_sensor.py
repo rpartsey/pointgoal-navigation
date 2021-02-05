@@ -35,20 +35,21 @@ class PointGoalWithEgoPredictionsSensor(PointGoalSensor):
         _goal_format: format for specifying the goal which can be done
             in cartesian or polar coordinates.
     """
-    cls_uuid: str = 'pointgoal_with_ego_predictions'
 
-    def __init__(self, sim: Simulator, config: Config):
+    # Note: cls_uuid is inherited from PointGoalSensor to assure compatibility with habitat-lab code
+
+    def __init__(self, sim: Simulator, config: Config, dataset=None, task=None):
         self.pointgoal = None
         self.current_episode_id = None
         self.prev_agent_state = None
         self.prev_observations = None
 
-        vo_model_train_config = get_train_config(config.TRAIN_CONFIG_PATH)
+        vo_model_train_config = get_train_config(config.TRAIN_CONFIG_PATH, new_keys_allowed=True)
         self.device = torch.device('cuda', config.GPU_DEVICE_ID)
         self.observations_transforms = make_transforms(vo_model_train_config.train.dataset.transforms)
         self.vo_model = make_model(vo_model_train_config.model).to(self.device)
         checkpoint = torch.load(config.CHECKPOINT_PATH, map_location=self.device)
-        self.vo_model.load_state_dict(checkpoint['model_state'])
+        self.vo_model.load_state_dict(checkpoint)
         self.vo_model.eval()
 
         super().__init__(sim=sim, config=config)
@@ -110,12 +111,7 @@ class PointGoalWithEgoPredictionsSensor(PointGoalSensor):
         with torch.no_grad():
             egomotion_preds = self.vo_model(batch)
 
-        noisy_x, noisy_y, noisy_z, noisy_yaw = (
-            egomotion_preds[0].item(),
-            egomotion_preds[1].item(),
-            egomotion_preds[2].item(),
-            egomotion_preds[3].item()
-        )
+        noisy_x, noisy_y, noisy_z, noisy_yaw = egomotion_preds.squeeze(0).cpu()
 
         # re-contruct the transformation matrix
         # using the noisy estimates for (x, y, z, yaw)

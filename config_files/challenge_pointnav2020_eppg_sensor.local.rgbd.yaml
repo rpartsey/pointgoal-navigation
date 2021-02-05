@@ -40,17 +40,18 @@ TASK:
   SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius
   SENSORS: ['POINTGOAL_WITH_EGO_PREDICTION_SENSOR']
   POINTGOAL_WITH_EGO_PREDICTION_SENSOR:
+    TYPE: PointGoalWithEgoPredictionsSensor
     GOAL_FORMAT: "POLAR"
     DIMENSIONALITY: 2
     TRAIN_CONFIG_PATH: /home/rpartsey/code/3d-navigation/related_works/pointgoal-navigation/pointgoal-navigation/experiments/smoke/config.yaml
     CHECKPOINT_PATH: /home/rpartsey/code/3d-navigation/related_works/pointgoal-navigation/pointgoal-navigation/experiments/smoke/best_checkpoint.pt
     GPU_DEVICE_ID: 0
   GOAL_SENSOR_UUID: pointgoal_with_ego_predictions
-  MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL', 'COLLISIONS']
+  MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL']
   SUCCESS:
     SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius
 
 DATASET:
   TYPE: PointNav-v1
-  SPLIT: train
+  SPLIT: val
   DATA_PATH: data/datasets/pointnav/gibson/v2/{split}/{split}.json.gz

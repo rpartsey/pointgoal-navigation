@@ -64,12 +64,13 @@ class ConvertToTensor:
             for k, v in data.items()
         }
 
-        data['egomotion']['translation'] = torch.from_numpy(
-            np.asarray(
-                data['egomotion']['translation'],
-                dtype=np.float32
+        if 'egomotion' in data:
+            data['egomotion']['translation'] = torch.from_numpy(
+                np.asarray(
+                    data['egomotion']['translation'],
+                    dtype=np.float32
+                )
             )
-        )
 
         return data
 
@@ -95,10 +96,11 @@ class Normalize:
         }
 
         # normalizing ego-motion rotation (-10 and +10 degrees)
-        rotation = data['egomotion']['rotation']
-        if rotation > np.deg2rad(300):
-            rotation -= (2 * np.pi)
-        data['egomotion']['rotation'] = rotation
+        if 'egomotion' in data:
+            rotation = data['egomotion']['rotation']
+            if rotation > np.deg2rad(300):
+                rotation -= (2 * np.pi)
+            data['egomotion']['rotation'] = rotation
 
         return data
 
