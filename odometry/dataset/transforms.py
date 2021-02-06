@@ -5,6 +5,33 @@ import torchvision.transforms as torch_transforms
 from PIL import Image
 
 
+class DiscretizeDepth:
+    def __init__(self, n_channels=5):
+        self.n_channels = n_channels
+
+    def __call__(self, data):
+        if self.n_channels > 1:
+            data.update({
+                k.replace('depth', 'depth_discretized'): self._discretize(v)
+                for k, v in data.items() if 'depth' in k
+            })
+
+        return data
+
+    def _discretize(self, depth):
+        min_v, max_v = depth.min(), depth.max()
+        bins = np.linspace(min_v, max_v, num=self.n_channels + 1, endpoint=True)
+        bins[-1] += np.finfo(bins.dtype).eps
+
+        lower_b = bins[:-1]
+        upper_b = bins[1:]
+
+        repeated_depth = depth.repeat(self.n_channels, axis=2)
+        onehot_depth = np.logical_and(lower_b <= repeated_depth, repeated_depth < upper_b).astype(depth.dtype)
+
+        return onehot_depth
+
+
 class ConvertToTensor:
     def __call__(self, data):
         data = {
@@ -37,12 +64,13 @@ class ConvertToTensor:
             for k, v in data.items()
         }
 
-        data['egomotion']['translation'] = torch.from_numpy(
-            np.asarray(
-                data['egomotion']['translation'],
-                dtype=np.float32
+        if 'egomotion' in data:
+            data['egomotion']['translation'] = torch.from_numpy(
+                np.asarray(
+                    data['egomotion']['translation'],
+                    dtype=np.float32
+                )
             )
-        )
 
         return data
 
@@ -68,10 +96,11 @@ class Normalize:
         }
 
         # normalizing ego-motion rotation (-10 and +10 degrees)
-        rotation = data['egomotion']['rotation']
-        if rotation > np.deg2rad(300):
-            rotation -= (2 * np.pi)
-        data['egomotion']['rotation'] = rotation
+        if 'egomotion' in data:
+            rotation = data['egomotion']['rotation']
+            if rotation > np.deg2rad(300):
+                rotation -= (2 * np.pi)
+            data['egomotion']['rotation'] = rotation
 
         return data
 

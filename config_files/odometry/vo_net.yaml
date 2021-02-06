@@ -12,18 +12,20 @@ train:
       environment_dataset: gibson
       split: train
       invert_rotations: False
-      d_depth_channels: 0
     transforms:
+      DiscretizeDepth:
+        params:
+          n_channels: 0
       ConvertToTensor:
-        params:
+        params: null
       PermuteChannels:
-        params:
+        params: null
       Resize:
         params:
           size: [360, 640]
           interpolation: BILINEAR
       Normalize:
-        params:
+        params: null
   loader:
     type: EgoDataLoader
     params:
@@ -41,16 +43,19 @@ val:
       invert_rotations: False
       d_depth_channels: 0
     transforms:
+      DiscretizeDepth:
+        params:
+          n_channels: 0
       ConvertToTensor:
-        params:
+        params: null
       PermuteChannels:
-        params:
+        params: null
       Resize:
         params:
           size: [360, 640]
           interpolation: BILINEAR
       Normalize:
-        params:
+        params: null
   loader:
     type: EgoDataLoader
     params:

@@ -60,7 +60,8 @@ def init_experiment(config):
         shutil.rmtree(config.experiment_dir)
 
     os.makedirs(config.experiment_dir)
-    shutil.copy(config.self_path, config.config_save_path)
+    with open(config.config_save_path, 'w') as dest_file:
+        config.dump(stream=dest_file)
 
 
 def train(model, optimizer, train_loader, loss_f, device):
@@ -131,6 +132,12 @@ def transform_batch(batch):
     source_input += [source_depth_maps]
     target_input += [target_depth_maps]
 
+    if all(key in batch for key in ['source_depth_discretized', 'target_depth_discretized']):
+        source_d_depth = batch['source_depth_discretized']
+        target_d_depth = batch['target_depth_discretized']
+        source_input += [source_d_depth]
+        target_input += [target_d_depth]
+
     concat_source_input = torch.cat(source_input, 1)
     concat_target_input = torch.cat(target_input, 1)
     transformed_batch = torch.cat(
@@ -141,15 +148,18 @@ def transform_batch(batch):
         1
     )
 
-    translation = batch['egomotion']['translation']
-    rotation = batch['egomotion']['rotation'].view(translation.shape[0], -1)
-    target = torch.cat(
-        [
-            translation,
-            rotation
-        ],
-        1
-    )
+    if 'egomotion' in batch:
+        translation = batch['egomotion']['translation']
+        rotation = batch['egomotion']['rotation'].view(translation.shape[0], -1)
+        target = torch.cat(
+            [
+                translation,
+                rotation
+            ],
+            1
+        )
+    else:
+        target = None
 
     return transformed_batch, target
 
@@ -191,7 +201,6 @@ def main():
     config.model.best_checkpoint_path = os.path.join(config.experiment_dir, 'best_checkpoint.pt')
     config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
-    config.self_path = config_path
     config.train.dataset.params.data_root = config.data_root
     config.train.dataset.params.num_points = args.num_dataset_items
     config.train.dataset.params.invert_rotations = args.invert_rotations

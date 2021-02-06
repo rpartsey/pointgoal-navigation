@@ -15,6 +15,7 @@ from habitat_baselines.config.default import get_config
 
 from habitat_baselines.utils.common import batch_obs
 from habitat_baselines.common.baseline_registry import baseline_registry
+import navigation.sensors  # noqa - required to register a sensor to baseline_registry
 
 
 @numba.njit
@@ -148,12 +149,15 @@ def main():
     """
     Smoke test if agent is instantiated properly and has expected navigation performance
     """
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--config-file", default="../../config_files/challenge_pointnav2020_gt_loc.local.rgbd.yaml"
+        "--config-file",
+        default="../../config_files/challenge_pointnav2020_gt_loc.local.rgbd.yaml"
     )
-    parser.add_argument("--model-path", default="/home/rpartsey/code/3d-navigation/related_works/egolocalization/checkpoints/pointnav2020_gt_loc_rgbd_ckpt.199.pth")
+    parser.add_argument(
+        "--model-path",
+        default="/home/rpartsey/code/3d-navigation/related_works/egolocalization/checkpoints/pointnav2020_gt_loc_rgbd_ckpt.199.pth"
+    )
     args = parser.parse_args()
 
     config = get_config(
