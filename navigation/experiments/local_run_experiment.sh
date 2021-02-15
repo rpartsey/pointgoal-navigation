@@ -47,6 +47,11 @@
 #CURRENT_DATETIME="`date +%Y_%m_%d_%H_%M_%S`";
 #echo $CUDA_VISIBLE_DEVICES
 
+if [[ ! -v CMD_OPTS_FILE ]]; then
+    echo "CMD_OPTS_FILE is not set"
+    exit 1
+fi
+
 CMD_OPTS=$(cat "$CMD_OPTS_FILE")
 
 set -x
