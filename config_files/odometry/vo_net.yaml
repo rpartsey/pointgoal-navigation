@@ -16,6 +16,8 @@ train:
       DiscretizeDepth:
         params:
           n_channels: 0
+          min_depth: null # 0
+          max_depth: null # 1
       ConvertToTensor:
         params: null
       PermuteChannels:
@@ -46,6 +48,8 @@ val:
       DiscretizeDepth:
         params:
           n_channels: 0
+          min_depth: null # 0
+          max_depth: null # 1
       ConvertToTensor:
         params: null
       PermuteChannels:
