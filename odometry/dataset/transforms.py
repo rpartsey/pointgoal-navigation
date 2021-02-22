@@ -6,8 +6,10 @@ from PIL import Image
 
 
 class DiscretizeDepth:
-    def __init__(self, n_channels=5):
+    def __init__(self, min_depth=None, max_depth=None, n_channels=5):
         self.n_channels = n_channels
+        self.min_depth = min_depth
+        self.max_depth = max_depth
 
     def __call__(self, data):
         if self.n_channels > 1:
@@ -19,9 +21,13 @@ class DiscretizeDepth:
         return data
 
     def _discretize(self, depth):
-        min_v, max_v = depth.min(), depth.max()
+        if self.min_depth is None and self.max_depth is None:
+            min_v, max_v = depth.min(), depth.max()
+        else:
+            min_v, max_v = self.min_depth, self.max_depth
+
         bins = np.linspace(min_v, max_v, num=self.n_channels + 1, endpoint=True)
-        bins[-1] += np.finfo(bins.dtype).eps
+        bins[-1] = np.finfo(bins.dtype).max
 
         lower_b = bins[:-1]
         upper_b = bins[1:]

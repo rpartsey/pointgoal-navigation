@@ -6,9 +6,11 @@ from . import samplers as samplers_module
 
 
 def make_transforms(transforms_config):
+    data_transforms = sorted(transforms_config.items(), key=lambda t: t[1].rank)
+
     return Compose([
         getattr(transforms_module, transform_type)(**(config.params if config.params else {}))
-        for transform_type, config in transforms_config.items()
+        for transform_type, config in data_transforms
     ])
 
 
