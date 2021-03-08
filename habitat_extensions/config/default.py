@@ -1,15 +1,12 @@
 from typing import List, Optional, Union
 
-from habitat.config.default import (
-    Config as CN,
-    get_config as _get_default_config,
-    CONFIG_FILE_SEPARATOR
-)
+from habitat.config import Config as CN
+from habitat.config.default import _C, CONFIG_FILE_SEPARATOR
+
 
 # -----------------------------------------------------------------------------
 # Config extensions
 # -----------------------------------------------------------------------------
-_C = _get_default_config()
 _C.defrost()
 # -----------------------------------------------------------------------------
 # POINTGOAL WITH EGO-PREDICTIONS SENSOR
@@ -17,6 +14,13 @@ _C.defrost()
 _C.TASK.POINTGOAL_WITH_EGO_PREDICTION_SENSOR = _C.TASK.POINTGOAL_SENSOR.clone()
 _C.TASK.POINTGOAL_WITH_EGO_PREDICTION_SENSOR.TYPE = (
     'PointGoalWithEgoPredictionsSensor'
+)
+# -----------------------------------------------------------------------------
+# POINTGOAL EGOMOTION SENSOR
+# -----------------------------------------------------------------------------
+_C.TASK.EGOMOTION_SENSOR = CN()
+_C.TASK.EGOMOTION_SENSOR.TYPE = (
+    'EgomotionSensor'
 )
 # -----------------------------------------------------------------------------
 
