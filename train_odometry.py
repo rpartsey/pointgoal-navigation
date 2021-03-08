@@ -9,7 +9,6 @@ from tqdm import tqdm
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-
 from odometry.utils.early_stopping import EarlyStopping
 from odometry.config.default import get_config
 
@@ -17,6 +16,7 @@ from odometry.models import make_model
 from odometry.dataset import make_dataset, make_data_loader
 from odometry.losses import make_loss
 from odometry.optims import make_optimizer
+from odometry.metrics import make_metrics
 
 
 def set_random_seed(seed):
@@ -41,8 +41,9 @@ def print_metrics(phase, metrics):
 
 
 def write_metrics(epoch, metrics, writer):
-    for k, v in metrics.items():
-        writer.add_scalar(f'metrics/{k}', v, epoch)
+    for metric_name, value in metrics.items():
+        key = 'losses' if 'loss' in metric_name else 'metrics'
+        writer.add_scalar(f'{key}/{metric_name}', value, epoch)
 
 
 def init_experiment(config):
@@ -65,7 +66,7 @@ def init_experiment(config):
         config.dump(stream=dest_file)
 
 
-def train(model, optimizer, train_loader, loss_f, device):
+def train(model, optimizer, train_loader, loss_f, metric_fns, device):
     model.train()
 
     metrics = defaultdict(lambda: 0)
@@ -86,6 +87,8 @@ def train(model, optimizer, train_loader, loss_f, device):
         metrics['loss'] += loss.item() * batch_size
         for loss_component, value in loss_components.items():
             metrics[loss_component] += value.item() * batch_size
+        for metric_f in metric_fns:
+            metrics[metric_f.__name__] += metric_f(output, target).item()
 
     dataset_length = len(train_loader.dataset)
     for metric_name in metrics:
@@ -94,7 +97,7 @@ def train(model, optimizer, train_loader, loss_f, device):
     return metrics
 
 
-def val(model, val_loader, loss_f, device):
+def val(model, val_loader, loss_f, metric_fns, device):
     model.eval()
 
     metrics = defaultdict(lambda: 0)
@@ -112,6 +115,8 @@ def val(model, val_loader, loss_f, device):
             metrics['loss'] += loss.item() * batch_size
             for loss_component, value in loss_components.items():
                 metrics[loss_component] += value.item() * batch_size
+            for metric_f in metric_fns:
+                metrics[metric_f.__name__] += metric_f(output, target).item()
 
     dataset_length = len(val_loader.dataset)
     for metric_name in metrics:
@@ -215,9 +220,11 @@ def main():
 
     train_dataset = make_dataset(config.train.dataset)
     train_loader = make_data_loader(config.train.loader, train_dataset)
+    train_metric_fns = make_metrics(config.train.metrics) if config.train.metrics else []
 
     val_dataset = make_dataset(config.val.dataset)
     val_loader = make_data_loader(config.val.loader, val_dataset)
+    val_metric_fns = make_metrics(config.val.metrics) if config.val.metrics else []
 
     device = torch.device(config.device)
     model = make_model(config.model).to(device)
@@ -236,11 +243,11 @@ def main():
 
     for epoch in range(1, config.epochs + 1):
         print(f'Epoch {epoch}')
-        train_metrics = train(model, optimizer, train_loader, loss_f, device)
+        train_metrics = train(model, optimizer, train_loader, loss_f, train_metric_fns, device)
         write_metrics(epoch, train_metrics, train_writer)
         print_metrics('Train', train_metrics)
 
-        val_metrics = val(model, val_loader, loss_f, device)
+        val_metrics = val(model, val_loader, loss_f, val_metric_fns, device)
         write_metrics(epoch, val_metrics, val_writer)
         print_metrics('Val', val_metrics)
 

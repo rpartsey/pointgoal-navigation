@@ -40,6 +40,9 @@ train:
       num_workers: 4
       shuffle: True
       sampler: null
+  metrics:
+    - translation_ae
+    - rotation_ae
 
 val:
   dataset:
@@ -77,6 +80,9 @@ val:
       num_workers: 4
       shuffle: False
       sampler: null
+  metrics:
+    - translation_ae
+    - rotation_ae
 
 model:
   type: VONet
