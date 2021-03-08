@@ -1,4 +1,4 @@
-import navigation.sensors  # noqa - required to register new sensors to baseline_registry
+import habitat_extensions.sensors  # noqa - required to register new sensors to baseline_registry
 from habitat_baselines.run import main
 
 

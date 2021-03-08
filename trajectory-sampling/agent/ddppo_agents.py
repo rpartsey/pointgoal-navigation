@@ -15,7 +15,7 @@ from habitat_baselines.config.default import get_config
 
 from habitat_baselines.utils.common import batch_obs
 from habitat_baselines.common.baseline_registry import baseline_registry
-import navigation.sensors  # noqa - required to register a sensor to baseline_registry
+import habitat_extensions.sensors  # noqa - required to register a sensor to baseline_registry
 
 
 @numba.njit
