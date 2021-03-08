@@ -1,0 +1,1 @@
+from habitat_baselines_extensions.rl.ppo.ppo_trainer_joint import PPOTrainerJoint

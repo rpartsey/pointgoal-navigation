@@ -1,8 +1,8 @@
-BASE_TASK_CONFIG_PATH: "config_files/challenge_pointnav2020_gt_loc.local.rgbd.yaml"
-TRAINER_NAME: "ddppo"
+BASE_TASK_CONFIG_PATH: "config_files/challenge_pointnav2020_gt_loc_and_egomotion.local.rgbd.yaml"
+TRAINER_NAME: "ddppo-joint"
 ENV_NAME: "NavRLEnv"
-SIMULATOR_GPU_ID: 0
-TORCH_GPU_ID: 2
+SIMULATOR_GPU_ID: 1
+TORCH_GPU_ID: 0
 VIDEO_OPTION: []
 TENSORBOARD_DIR: "tb"
 VIDEO_DIR: "video_dir"
