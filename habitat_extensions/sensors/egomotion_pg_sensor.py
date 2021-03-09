@@ -37,16 +37,23 @@ class PointGoalWithEgoPredictionsSensor(PointGoalSensor):
     """
 
     # Note: cls_uuid is inherited from PointGoalSensor to assure compatibility with habitat-lab code
+    ROTATION_ACTIONS = {
+        # 0   STOP
+        # 1   MOVE_FORWARD
+        2,  # TURN_LEFT
+        3,  # TURN_RIGHT
+    }
 
     def __init__(self, sim: Simulator, config: Config, dataset=None, task=None):
         self.pointgoal = None
         self.current_episode_id = None
         self.prev_agent_state = None
         self.prev_observations = None
+        self.rotation_regularization_on = config.ROTATION_REGULARIZATION
 
         vo_model_train_config = get_train_config(config.TRAIN_CONFIG_PATH, new_keys_allowed=True)
         self.device = torch.device('cuda', config.GPU_DEVICE_ID)
-        self.observations_transforms = make_transforms(vo_model_train_config.train.dataset.transforms)
+        self.obs_transforms = make_transforms(vo_model_train_config.train.dataset.transforms)
         self.vo_model = make_model(vo_model_train_config.model).to(self.device)
         checkpoint = torch.load(config.CHECKPOINT_PATH, map_location=self.device)
         self.vo_model.load_state_dict(checkpoint)
@@ -98,20 +105,37 @@ class PointGoalWithEgoPredictionsSensor(PointGoalSensor):
 
         # middle of episode
         # update pointgoal using egomotion
-        visual_observations = {
+        visual_obs = {
             'source_rgb': self.prev_observations['rgb'],
             'target_rgb': observations['rgb'],
             'source_depth': self.prev_observations['depth'],
             'target_depth': observations['depth']
         }
-        visual_observations = self.observations_transforms(visual_observations)
-        batch = {k: v.unsqueeze(0) for k, v in visual_observations.items()}
+        visual_obs = self.obs_transforms(visual_obs)
+        batch = {k: v.unsqueeze(0) for k, v in visual_obs.items()}
+
+        if self.rotation_regularization_on and kwargs['action']['action'] in self.ROTATION_ACTIONS:
+            batch.update({
+                'source_rgb': torch.cat([batch['source_rgb'], batch['target_rgb']], 0),
+                'target_rgb': torch.cat([batch['target_rgb'], batch['source_rgb']], 0),
+                'source_depth': torch.cat([batch['source_depth'], batch['target_depth']], 0),
+                'target_depth': torch.cat([batch['target_depth'], batch['source_depth']], 0),
+            })
+            if all(key in batch for key in ['source_depth_discretized', 'target_depth_discretized']):
+                batch.update({
+                    'source_depth_discretized': torch.cat([batch['source_depth_discretized'], batch['target_depth_discretized']], 0),
+                    'target_depth_discretized': torch.cat([batch['target_depth_discretized'], batch['source_depth_discretized']], 0)
+                })
+
         batch, _ = transform_batch(batch)
         batch = batch.to(self.device)
         with torch.no_grad():
             egomotion_preds = self.vo_model(batch)
 
-        noisy_x, noisy_y, noisy_z, noisy_yaw = egomotion_preds.squeeze(0).cpu()
+        if egomotion_preds.size(0) == 2:
+            noisy_x, noisy_y, noisy_z, noisy_yaw = ((egomotion_preds[0] + -egomotion_preds[1]) / 2).cpu()
+        else:
+            noisy_x, noisy_y, noisy_z, noisy_yaw = egomotion_preds.squeeze(0).cpu()
 
         # re-contruct the transformation matrix
         # using the noisy estimates for (x, y, z, yaw)

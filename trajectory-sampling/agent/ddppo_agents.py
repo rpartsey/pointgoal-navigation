@@ -124,7 +124,7 @@ class DDPPOAgent(Agent):
             self.hidden_size,
             device=self.device,
         )
-        self.not_done_masks = torch.zeros(1, 1, device=self.device)
+        self.not_done_masks = torch.zeros(1, 1, device=self.device, dtype=torch.bool)
         self.prev_actions = torch.zeros(1, 1, dtype=torch.long, device=self.device)
 
     def act(self, observations):
@@ -139,10 +139,10 @@ class DDPPOAgent(Agent):
                 deterministic=False,
             )
             #  Make masks not done till reset (end of episode) will be called
-            self.not_done_masks.fill_(1.0)
+            self.not_done_masks.fill_(True)
             self.prev_actions.copy_(action)
 
-        return action.item()
+        return {'action': action.item()}
 
 
 def main():
