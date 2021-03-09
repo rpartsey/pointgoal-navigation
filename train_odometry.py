@@ -3,8 +3,6 @@ import shutil
 import argparse
 from collections import defaultdict
 
-import numpy as np
-import random
 from tqdm import tqdm
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -17,14 +15,7 @@ from odometry.dataset import make_dataset, make_data_loader
 from odometry.losses import make_loss
 from odometry.optims import make_optimizer
 from odometry.metrics import make_metrics
-
-
-def set_random_seed(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
+from odometry.utils import set_random_seed
 
 
 def print_metrics(phase, metrics):
@@ -88,7 +79,7 @@ def train(model, optimizer, train_loader, loss_f, metric_fns, device):
         for loss_component, value in loss_components.items():
             metrics[loss_component] += value.item() * batch_size
         for metric_f in metric_fns:
-            metrics[metric_f.__name__] += metric_f(output, target).item()
+            metrics[metric_f.__name__] += metric_f(output, target).item() * batch_size
 
     dataset_length = len(train_loader.dataset)
     for metric_name in metrics:
@@ -116,7 +107,7 @@ def val(model, val_loader, loss_f, metric_fns, device):
             for loss_component, value in loss_components.items():
                 metrics[loss_component] += value.item() * batch_size
             for metric_f in metric_fns:
-                metrics[metric_f.__name__] += metric_f(output, target).item()
+                metrics[metric_f.__name__] += metric_f(output, target).item() * batch_size
 
     dataset_length = len(val_loader.dataset)
     for metric_name in metrics:

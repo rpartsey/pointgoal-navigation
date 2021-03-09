@@ -41,8 +41,8 @@ train:
       shuffle: True
       sampler: null
   metrics:
-    - translation_ae
-    - rotation_ae
+    - translation_mae
+    - rotation_mae
 
 val:
   dataset:
@@ -81,8 +81,8 @@ val:
       shuffle: False
       sampler: null
   metrics:
-    - translation_ae
-    - rotation_ae
+    - translation_mae
+    - rotation_mae
 
 model:
   type: VONet
