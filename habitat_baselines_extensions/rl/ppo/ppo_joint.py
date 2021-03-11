@@ -15,7 +15,7 @@ from odometry.dataset import make_transforms
 from odometry.models import make_model
 from odometry.losses import make_loss
 from odometry.optims import make_optimizer
-from train_odometry import transform_batch
+from odometry.utils import transform_batch
 
 
 class PPO(BaselinePPO):

@@ -14,7 +14,7 @@ from habitat.tasks.nav.nav import PointGoalSensor, NavigationEpisode
 from odometry.config.default import get_config as get_train_config
 from odometry.dataset import make_transforms
 from odometry.models import make_model
-from train_odometry import transform_batch
+from odometry.utils import transform_batch
 
 
 @registry.register_sensor

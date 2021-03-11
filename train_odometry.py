@@ -15,7 +15,7 @@ from odometry.dataset import make_dataset, make_data_loader
 from odometry.losses import make_loss
 from odometry.optims import make_optimizer
 from odometry.metrics import make_metrics
-from odometry.utils import set_random_seed
+from odometry.utils import set_random_seed, transform_batch
 
 
 def print_metrics(phase, metrics):
@@ -114,51 +114,6 @@ def val(model, val_loader, loss_f, metric_fns, device):
         metrics[metric_name] /= dataset_length
 
     return metrics
-
-
-def transform_batch(batch):
-    source_input, target_input = [], []
-
-    source_images = batch['source_rgb']
-    target_images = batch['target_rgb']
-    source_input += [source_images]
-    target_input += [target_images]
-
-    source_depth_maps = batch['source_depth']
-    target_depth_maps = batch['target_depth']
-    source_input += [source_depth_maps]
-    target_input += [target_depth_maps]
-
-    if all(key in batch for key in ['source_depth_discretized', 'target_depth_discretized']):
-        source_d_depth = batch['source_depth_discretized']
-        target_d_depth = batch['target_depth_discretized']
-        source_input += [source_d_depth]
-        target_input += [target_d_depth]
-
-    concat_source_input = torch.cat(source_input, 1)
-    concat_target_input = torch.cat(target_input, 1)
-    transformed_batch = torch.cat(
-        [
-            concat_source_input,
-            concat_target_input
-        ],
-        1
-    )
-
-    if 'egomotion' in batch:
-        translation = batch['egomotion']['translation']
-        rotation = batch['egomotion']['rotation'].view(translation.shape[0], -1)
-        target = torch.cat(
-            [
-                translation,
-                rotation
-            ],
-            1
-        )
-    else:
-        target = None
-
-    return transformed_batch, target
 
 
 def parse_args():

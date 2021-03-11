@@ -11,8 +11,7 @@ from odometry.dataset import make_dataset, make_data_loader
 from odometry.losses import make_loss
 from odometry.metrics import make_metrics
 from odometry.models import make_model
-from odometry.utils import set_random_seed
-from train_odometry import transform_batch
+from odometry.utils import set_random_seed, transform_batch
 
 
 def parse_args():
