@@ -54,4 +54,9 @@ def transform_batch(batch):
     else:
         target = None
 
-    return transformed_batch, target
+    embeddings = {}
+    for k in ['action_embedding', 'collision_embedding']:
+        if k in batch:
+            embeddings[k] = batch[k]
+
+    return transformed_batch, embeddings, target

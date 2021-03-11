@@ -3,6 +3,7 @@ import shutil
 import argparse
 from collections import defaultdict
 
+from habitat.config import Config as CN
 from tqdm import tqdm
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -63,11 +64,13 @@ def train(model, optimizer, train_loader, loss_f, metric_fns, device):
     metrics = defaultdict(lambda: 0)
 
     for data in tqdm(train_loader):
-        data, target = transform_batch(data)
-        data = data.to(device).float()
-        target = target.to(device).float()
+        data, embeddings, target = transform_batch(data)
+        data = data.float().to(device)
+        target = target.float().to(device)
+        for k, v in embeddings.items():
+            embeddings[k] = v.float().to(device)
 
-        output = model(data)
+        output = model(data, **embeddings)
         loss, loss_components = loss_f(output, target)
 
         optimizer.zero_grad()
@@ -95,11 +98,13 @@ def val(model, val_loader, loss_f, metric_fns, device):
 
     with torch.no_grad():
         for data in tqdm(val_loader):
-            data, target = transform_batch(data)
-            data = data.to(device).float()
-            target = target.to(device).float()
+            data, embeddings, target = transform_batch(data)
+            data = data.float().to(device)
+            target = target.float().to(device)
+            for k, v in embeddings.items():
+                embeddings[k] = v.float().to(device)
 
-            output = model(data)
+            output = model(data, **embeddings)
             loss, loss_components = loss_f(output, target)
 
             batch_size = target.shape[0]
@@ -159,6 +164,15 @@ def main():
     config.val.dataset.params.data_root = config.data_root
     config.val.dataset.params.num_points = args.num_dataset_items
     config.val.dataset.params.invert_rotations = args.invert_rotations
+
+    convert_to_tensor_params = CN()
+    convert_to_tensor_params.collision_embedding_size = config.model.params.collision_embedding_size
+    convert_to_tensor_params.n_collision_values = config.model.params.n_collision_values
+    convert_to_tensor_params.action_embedding_size = config.model.params.action_embedding_size
+    convert_to_tensor_params.n_action_values = config.model.params.n_action_values
+
+    config.train.dataset.transforms.ConvertToTensor.params = convert_to_tensor_params
+    config.val.dataset.transforms.ConvertToTensor.params = convert_to_tensor_params
     config.freeze()
 
     init_experiment(config)

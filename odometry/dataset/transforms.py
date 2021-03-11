@@ -1,6 +1,7 @@
 import numpy as np
 
 import torch
+import torch.nn as nn
 import torchvision.transforms as torch_transforms
 from PIL import Image
 
@@ -39,6 +40,17 @@ class DiscretizeDepth:
 
 
 class ConvertToTensor:
+    def __init__(self, collision_embedding_size, n_collision_values, action_embedding_size, n_action_values):
+        self.action_embedding = nn.Embedding(
+            num_embeddings=n_action_values,
+            embedding_dim=action_embedding_size
+        ) if action_embedding_size > 0 else None
+
+        self.collision_embedding = nn.Embedding(
+            num_embeddings=n_collision_values,
+            embedding_dim=collision_embedding_size
+        ) if collision_embedding_size > 0 else None
+
     def __call__(self, data):
         data = {
             k: (
@@ -77,6 +89,14 @@ class ConvertToTensor:
                     dtype=np.float32
                 )
             )
+
+        action = torch.tensor(data.pop('action'))
+        if self.action_embedding is not None:
+            data['action_embedding'] = self.action_embedding(action).detach()
+
+        collision = torch.tensor(data.pop('collision'))
+        if self.collision_embedding is not None:
+            data['collision_embedding'] = self.collision_embedding(collision).detach()
 
         return data
 

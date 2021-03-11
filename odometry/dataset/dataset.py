@@ -14,6 +14,12 @@ class EgoMotionDataset(Dataset):
         'TURN_LEFT': 'TURN_RIGHT',
         'TURN_RIGHT': 'TURN_LEFT'
     }
+    ACTION_TO_ID = {
+        'STOP': 0,
+        'MOVE_FORWARD': 1,
+        'TURN_LEFT': 2,
+        'TURN_RIGHT': 3
+    }
 
     def __init__(
             self,
@@ -79,7 +85,8 @@ class EgoMotionDataset(Dataset):
             'target_rgb': np.asarray(target_rgb),
             'source_depth': source_depth,
             'target_depth': target_depth,
-            'action': meta['action'][0],
+            'action': self.ACTION_TO_ID[meta['action'][0]] - 1,  # shift action ids by 1 as we don't use STOP
+            'collision': int(meta['collision']),
             'egomotion': get_relative_egomotion(meta),
         }
         item = self.transforms(item)

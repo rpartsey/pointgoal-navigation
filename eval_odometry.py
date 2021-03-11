@@ -124,11 +124,13 @@ def evaluate_checkpoint(args, config):
                 for i, data in enumerate(tqdm(loader)):
                     batch_metrics = defaultdict(lambda: 0)
 
-                    data, target = transform_batch(data)
-                    data = data.to(device).float()
-                    target = target.to(device).float()
+                    data, embeddings, target = transform_batch(data)
+                    data = data.float().to(device)
+                    target = target.float().to(device)
+                    for k, v in embeddings.items():
+                        embeddings[k] = v.float().to(device)
 
-                    output = model(data)
+                    output = model(data, **embeddings)
                     loss, loss_components = loss_f(output, target)
 
                     batch_metrics['loss'] = loss.item()

@@ -127,10 +127,13 @@ class PointGoalWithEgoPredictionsSensor(PointGoalSensor):
                     'target_depth_discretized': torch.cat([batch['target_depth_discretized'], batch['source_depth_discretized']], 0)
                 })
 
-        batch, _ = transform_batch(batch)
+        batch, embeddings, _ = transform_batch(batch)
         batch = batch.to(self.device)
+        for k, v in embeddings.items():
+            embeddings[k] = v.float().to(self.device)
+
         with torch.no_grad():
-            egomotion_preds = self.vo_model(batch)
+            egomotion_preds = self.vo_model(batch, **embeddings)
 
         if egomotion_preds.size(0) == 2:
             noisy_x, noisy_y, noisy_z, noisy_yaw = ((egomotion_preds[0] + -egomotion_preds[1]) / 2).cpu()

@@ -225,11 +225,13 @@ class PPO(BaselinePPO):
                     batch['source_depth'] = torch.stack(batch['source_depth'])
                     batch['target_depth'] = torch.stack(batch['target_depth'])
 
-                    batch, _ = transform_batch(batch)
+                    batch, embeddings, _ = transform_batch(batch)
                     batch = batch.to(self.vo_device)
+                    for k, v in embeddings.items():
+                        embeddings[k] = v.float().to(self.vo_device)
 
                     self.vo_model.train()
-                    output = self.vo_model(batch)
+                    output = self.vo_model(batch, **embeddings)
                     target = torch.stack(egomotions).to(self.vo_device)
                     vo_loss, vo_loss_components = self.vo_loss_f(output, target)
 
