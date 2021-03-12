@@ -15,21 +15,21 @@ class DropoutPart(nn.Module):
 
 
 class VONet(nn.Module):
-    def __init__(self, encoder, fc):
+    def __init__(self, encoder, fc, action_embedding=None, collision_embedding=None):
         super().__init__()
+        self.action_embedding = action_embedding
+        self.collision_embedding = collision_embedding
         self.encoder = encoder
-        self.fc = fc
         self.flatten = nn.Flatten()
+        self.fc = fc
 
-    def forward(self, x, action_embedding=None, collision_embedding=None):
+    def forward(self, x, action=None, collision=None):
         x = self.encoder(x)[-1]  # get last stage output
         x = self.flatten(x)
-
-        if action_embedding is not None:
-            x = torch.cat([action_embedding, x], 1)
-        if collision_embedding is not None:
-            x = torch.cat([collision_embedding, x], 1)
-
+        if self.action_embedding:
+            x = torch.cat([self.action_embedding(action).detach(), x], 1)
+        if self.collision_embedding:
+            x = torch.cat([self.collision_embedding(collision).detach(), x], 1)
         x = self.fc(x)
 
         return x
@@ -39,6 +39,16 @@ class VONet(nn.Module):
         model_params = model_config.params
         encoder_params = model_params.encoder.params
         fc_params = model_params.fc.params
+
+        action_embedding = nn.Embedding(
+            num_embeddings=model_params.n_action_values,
+            embedding_dim=model_params.action_embedding_size
+        ) if model_params.action_embedding_size > 0 else None
+
+        collision_embedding = nn.Embedding(
+            num_embeddings=model_params.n_collision_values,
+            embedding_dim=model_params.collision_embedding_size
+        ) if model_params.collision_embedding_size > 0 else None
 
         encoder = get_encoder(
             name=model_params.encoder.type,
@@ -55,7 +65,7 @@ class VONet(nn.Module):
             p_dropout=fc_params.p_dropout
         )
 
-        return cls(encoder, fc)
+        return cls(encoder, fc, action_embedding, collision_embedding)
 
     @staticmethod
     def create_fc_layers(

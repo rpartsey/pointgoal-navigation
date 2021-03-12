@@ -128,7 +128,7 @@ def evaluate_checkpoint(args, config):
                     data = data.float().to(device)
                     target = target.float().to(device)
                     for k, v in embeddings.items():
-                        embeddings[k] = v.float().to(device)
+                        embeddings[k] = v.to(device)
 
                     output = model(data, **embeddings)
                     loss, loss_components = loss_f(output, target)

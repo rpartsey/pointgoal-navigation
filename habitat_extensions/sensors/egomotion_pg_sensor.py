@@ -130,7 +130,7 @@ class PointGoalWithEgoPredictionsSensor(PointGoalSensor):
         batch, embeddings, _ = transform_batch(batch)
         batch = batch.to(self.device)
         for k, v in embeddings.items():
-            embeddings[k] = v.float().to(self.device)
+            embeddings[k] = v.to(self.device)
 
         with torch.no_grad():
             egomotion_preds = self.vo_model(batch, **embeddings)

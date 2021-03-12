@@ -68,7 +68,7 @@ def train(model, optimizer, train_loader, loss_f, metric_fns, device):
         data = data.float().to(device)
         target = target.float().to(device)
         for k, v in embeddings.items():
-            embeddings[k] = v.float().to(device)
+            embeddings[k] = v.to(device)
 
         output = model(data, **embeddings)
         loss, loss_components = loss_f(output, target)
@@ -102,7 +102,7 @@ def val(model, val_loader, loss_f, metric_fns, device):
             data = data.float().to(device)
             target = target.float().to(device)
             for k, v in embeddings.items():
-                embeddings[k] = v.float().to(device)
+                embeddings[k] = v.to(device)
 
             output = model(data, **embeddings)
             loss, loss_components = loss_f(output, target)
@@ -164,15 +164,6 @@ def main():
     config.val.dataset.params.data_root = config.data_root
     config.val.dataset.params.num_points = args.num_dataset_items
     config.val.dataset.params.invert_rotations = args.invert_rotations
-
-    convert_to_tensor_params = CN()
-    convert_to_tensor_params.collision_embedding_size = config.model.params.collision_embedding_size
-    convert_to_tensor_params.n_collision_values = config.model.params.n_collision_values
-    convert_to_tensor_params.action_embedding_size = config.model.params.action_embedding_size
-    convert_to_tensor_params.n_action_values = config.model.params.n_action_values
-
-    config.train.dataset.transforms.ConvertToTensor.params = convert_to_tensor_params
-    config.val.dataset.transforms.ConvertToTensor.params = convert_to_tensor_params
     config.freeze()
 
     init_experiment(config)

@@ -228,7 +228,7 @@ class PPO(BaselinePPO):
                     batch, embeddings, _ = transform_batch(batch)
                     batch = batch.to(self.vo_device)
                     for k, v in embeddings.items():
-                        embeddings[k] = v.float().to(self.vo_device)
+                        embeddings[k] = v.to(self.vo_device)
 
                     self.vo_model.train()
                     output = self.vo_model(batch, **embeddings)
