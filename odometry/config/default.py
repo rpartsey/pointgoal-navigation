@@ -6,6 +6,13 @@ CONFIG_FILE_SEPARATOR = ','
 
 _C = CN()
 
+_C.model = CN()
+_C.model.params = CN()
+_C.model.params.collision_embedding_size = 0
+_C.model.params.n_collision_values = 2
+_C.model.params.action_embedding_size = 0
+_C.model.params.n_action_values = 3
+
 
 def get_config(
     config_paths: Optional[Union[List[str], str]] = None,

@@ -78,6 +78,9 @@ class ConvertToTensor:
                 )
             )
 
+        data['action'] = torch.tensor(data['action'])
+        data['collision'] = torch.tensor(data['collision'])
+
         return data
 
 

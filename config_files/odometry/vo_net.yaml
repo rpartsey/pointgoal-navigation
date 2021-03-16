@@ -101,6 +101,8 @@ model:
         hidden_size: [512, 512]
         output_size: 4
         p_dropout: 0
+    collision_embedding_size: 0
+    action_embedding_size: 0
 
 loss:
   type: PoseLoss

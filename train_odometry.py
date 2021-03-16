@@ -3,6 +3,7 @@ import shutil
 import argparse
 from collections import defaultdict
 
+from habitat.config import Config as CN
 from tqdm import tqdm
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -63,11 +64,13 @@ def train(model, optimizer, train_loader, loss_f, metric_fns, device):
     metrics = defaultdict(lambda: 0)
 
     for data in tqdm(train_loader):
-        data, target = transform_batch(data)
-        data = data.to(device).float()
-        target = target.to(device).float()
+        data, embeddings, target = transform_batch(data)
+        data = data.float().to(device)
+        target = target.float().to(device)
+        for k, v in embeddings.items():
+            embeddings[k] = v.to(device)
 
-        output = model(data)
+        output = model(data, **embeddings)
         loss, loss_components = loss_f(output, target)
 
         optimizer.zero_grad()
@@ -95,11 +98,13 @@ def val(model, val_loader, loss_f, metric_fns, device):
 
     with torch.no_grad():
         for data in tqdm(val_loader):
-            data, target = transform_batch(data)
-            data = data.to(device).float()
-            target = target.to(device).float()
+            data, embeddings, target = transform_batch(data)
+            data = data.float().to(device)
+            target = target.float().to(device)
+            for k, v in embeddings.items():
+                embeddings[k] = v.to(device)
 
-            output = model(data)
+            output = model(data, **embeddings)
             loss, loss_components = loss_f(output, target)
 
             batch_size = target.shape[0]
