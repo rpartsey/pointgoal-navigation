@@ -1,6 +1,5 @@
 import sys
 import csv
-import ipdb
 import random
 
 from habitat_baselines.common.baseline_registry import baseline_registry

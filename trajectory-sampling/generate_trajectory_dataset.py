@@ -11,8 +11,8 @@ from tqdm import tqdm
 from collections import defaultdict
 from itertools import groupby
 
-from agent import build_agent
 from environment import build_env
+from agent import DDPPOAgent, ShortestPathFollowerAgent
 from habitat_baselines.config.default import get_config
 
 
@@ -26,6 +26,13 @@ ACTION_MAP = {
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--agent-type",
+        required=True,
+        type=str,
+        choices=['ddppo', 'spf'],
+        help="/datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo2/trajectory-noisy",
+    )
     parser.add_argument(
         "--data-dir",
         required=True,
@@ -61,7 +68,7 @@ def parse_args():
         "--split",
         required=True,
         type=str,
-        choices=["train", "val", "test"],
+        choices=["train", "val", "val_mini"],
         help="dataset split"
     )
     parser.add_argument(
@@ -235,7 +242,10 @@ if __name__ == '__main__':
     config.freeze()
 
     env = build_env(config)
-    agent = build_agent(config)
+    agent = DDPPOAgent(config) if args.agent_type == 'ddppo' else ShortestPathFollowerAgent(
+        env=env,
+        goal_radius=config.TASK_CONFIG.TASK.SUCCESS.SUCCESS_DISTANCE
+    )
 
     nav_episodes = env.habitat_env.episode_iterator.episodes
     scene_wise_episode_cnt_stats = {
