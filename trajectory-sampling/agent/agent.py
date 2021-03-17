@@ -1,4 +1,3 @@
-import argparse
 import random
 
 import numpy as np
@@ -11,10 +10,6 @@ from . import batch_obs
 import habitat
 from habitat import Config
 from habitat.core.agent import Agent
-
-import ipdb
-
-from .ddppo_agents import DDPPOAgent
 
 
 def get_defaut_config():
@@ -157,7 +152,3 @@ class PPOAgent(Agent):
             self.prev_actions = actions.clone()
 
         return actions[0][0].item()
-
-
-def build_agent(config):
-    return DDPPOAgent(config)
