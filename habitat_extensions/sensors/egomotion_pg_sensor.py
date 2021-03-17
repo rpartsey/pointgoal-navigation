@@ -52,8 +52,8 @@ class PointGoalWithEgoPredictionsSensor(PointGoalSensor):
         # vo init
         vo_config = get_train_config(config.TRAIN_CONFIG_PATH, new_keys_allowed=True)
         self.device = torch.device('cuda', config.GPU_DEVICE_ID)
-        self.obs_transforms = make_transforms(self.vo_config.val.dataset.transforms)
-        self.vo_model = make_model(self.vo_config.model).to(self.device)
+        self.obs_transforms = make_transforms(vo_config.val.dataset.transforms)
+        self.vo_model = make_model(vo_config.model).to(self.device)
         checkpoint = torch.load(config.CHECKPOINT_PATH, map_location=self.device)
         self.vo_model.load_state_dict(checkpoint)
         self.vo_model.eval()
