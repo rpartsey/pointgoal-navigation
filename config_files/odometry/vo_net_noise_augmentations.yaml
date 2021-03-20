@@ -8,7 +8,7 @@ train:
   dataset:
     type: EgoMotionDataset
     params:
-      data_root: /datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo/trajectory-noisy
+      data_root: /datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo/trajectory-noiseless
       environment_dataset: gibson
       split: train
       invert_rotations: False
@@ -33,7 +33,13 @@ train:
       Normalize:
         rank: 5
         params: null
-    augmentations: null
+    augmentations:
+      RGBNoise:
+        params:
+          intensity_constant: 0.1
+      DepthNoise:
+        params:
+          noise_multiplier: 0.5
   loader:
     type: EgoDataLoader
     params:
