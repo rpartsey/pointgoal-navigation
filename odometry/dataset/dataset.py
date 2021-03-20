@@ -29,12 +29,14 @@ class EgoMotionDataset(Dataset):
             transforms,
             num_points=None,
             invert_rotations=False,
+            augmentations=None
     ):
         super().__init__()
         self.data_root = data_root
         self.environment_dataset = environment_dataset
         self.split = split
         self.transforms = transforms
+        self.augmentations = augmentations
         self.jsons = self._load_jsons()
         if invert_rotations:
             self._add_inverse_rotations()
@@ -89,6 +91,9 @@ class EgoMotionDataset(Dataset):
             'collision': int(meta['collision']),
             'egomotion': get_relative_egomotion(meta),
         }
+        if self.augmentations is not None:
+            item = self.augmentations(item)
+
         item = self.transforms(item)
 
         return item
@@ -103,7 +108,7 @@ class EgoMotionDataset(Dataset):
         return item
 
     @classmethod
-    def from_config(cls, config, transforms):
+    def from_config(cls, config, transforms, augmentations=None):
         dataset_params = config.params
         return cls(
             data_root=dataset_params.data_root,
@@ -111,7 +116,8 @@ class EgoMotionDataset(Dataset):
             split=dataset_params.split,
             transforms=transforms,
             num_points=dataset_params.num_points,
-            invert_rotations=dataset_params.invert_rotations
+            invert_rotations=dataset_params.invert_rotations,
+            augmentations=augmentations
         )
 
 

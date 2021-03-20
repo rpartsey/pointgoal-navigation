@@ -2,10 +2,9 @@
 set -x
 CURRENT_DATETIME="`date +%Y_%m_%d_%H_%M_%S`";
 
-BASE_TASK_CONFIG_PATH="config_files/challenge_pointnav2020_gt_loc.local.rgbd.yaml"
+BASE_TASK_CONFIG_PATH="config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml"
 
-##  Finetune Run train woth on mp3d with pretrained on SDR 28 cat pred reward_expl_dt_when_visible all mp3d  ckpt.32
-EXP_NAME="pointnav2020_gt_loc_rgbd_${CURRENT_DATETIME}"
+EXP_NAME="pointnav2021_gt_loc_rgbd_${CURRENT_DATETIME}"
 DATASET_CONTENT_SCENES=""
 MAX_SCENE_REPEAT_STEPS=""
 NUM_EPISODE_SAMPLE=""

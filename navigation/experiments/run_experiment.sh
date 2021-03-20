@@ -2,15 +2,15 @@
 #SBATCH --job-name=ddppo-object-nav
 #SBATCH --gres=gpu:8   #gpu:volta:8
 #SBATCH --constraint=volta32gb
-#SBATCH --nodes 32
+#SBATCH --nodes 2
 #SBATCH --cpus-per-task 10
 #SBATCH --ntasks-per-node 8
 #SBATCH --mem=450GB #maybe 450, was 500GB
 #SBATCH --time=72:00:00
 #SBATCH --signal=USR1@600
-#SBATCH --partition=priority
+#SBATCH --partition=dev
 #SBATCH --open-mode=append
-#SBATCH --comment="CVPR 2021"
+#SBATCH --comment="EmbodiedAI Challenges 2021"
 
 export GLOG_minloglevel=2
 export MAGNUM_LOG=quiet
@@ -34,7 +34,7 @@ module load cudnn/v7.6.5.32-cuda.10.1
 module load anaconda3/5.0.1
 module load gcc/7.1.0
 module load cmake/3.10.1/gcc.5.4.0
-source activate my_fair_env
+source activate challenge_2021
 
 export CUDA_HOME="/public/apps/cuda/10.1"
 export CUDA_NVCC_EXECUTABLE="/public/apps/cuda/10.1/bin/nvcc"
@@ -50,6 +50,6 @@ echo $CUDA_VISIBLE_DEVICES
 CMD_OPTS=$(cat "$CMD_OPTS_FILE")
 
 set -x
-srun /private/home/maksymets/.conda/envs/my_fair_env/bin/python -u -m habitat_baselines.run \
-    --exp-config config_files/ddppo/ddppo_pointnav.yaml \
+srun python -u -m habitat_baselines.run \
+    --exp-config config_files/ddppo/ddppo_pointnav_2021.yaml \
     --run-type train ${CMD_OPTS}

@@ -3,14 +3,12 @@ import shutil
 import argparse
 from collections import defaultdict
 
-from habitat.config import Config as CN
 from tqdm import tqdm
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from odometry.utils.early_stopping import EarlyStopping
 from odometry.config.default import get_config
-
 from odometry.models import make_model
 from odometry.dataset import make_dataset, make_data_loader
 from odometry.losses import make_loss
@@ -158,10 +156,8 @@ def main():
     config.model.best_checkpoint_path = os.path.join(config.experiment_dir, 'best_checkpoint.pt')
     config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
-    config.train.dataset.params.data_root = config.data_root
     config.train.dataset.params.num_points = args.num_dataset_items
     config.train.dataset.params.invert_rotations = args.invert_rotations
-    config.val.dataset.params.data_root = config.data_root
     config.val.dataset.params.num_points = args.num_dataset_items
     config.val.dataset.params.invert_rotations = args.invert_rotations
     config.freeze()
