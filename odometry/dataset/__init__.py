@@ -3,6 +3,14 @@ from torchvision.transforms import Compose
 from . import dataset as dataset_module
 from . import transforms as transforms_module
 from . import samplers as samplers_module
+from . import augmentations as augmentations_module
+
+
+def make_augmentations(augmentations_config):
+    return Compose([
+        getattr(augmentations_module, augmentation_type)(**(config.params if config.params else {}))
+        for augmentation_type, config in augmentations_config.items()
+    ])
 
 
 def make_transforms(transforms_config):
@@ -27,11 +35,13 @@ def make_sampler(loader_config, dataset):
 
 def make_dataset(dataset_config):
     dataset_transforms = make_transforms(dataset_config.transforms)
+    dataset_augmentations = make_augmentations(dataset_config.augmentations) if dataset_config.augmentations else None
 
     dataset_type = getattr(dataset_module, dataset_config.type)
     dataset = dataset_type.from_config(
         dataset_config,
         dataset_transforms,
+        dataset_augmentations
     )
 
     return dataset
