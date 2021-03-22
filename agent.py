@@ -166,6 +166,7 @@ def main():
     )
     parser.add_argument("--ddppo-config-path", required=True, type=str)
     parser.add_argument("--ddppo-checkpoint-path", required=True, type=str)
+    parser.add_argument("--pth-gpu-id", default=0, type=int)
     args = parser.parse_args()
 
     config_paths = os.environ["CHALLENGE_CONFIG_FILE"]
@@ -176,7 +177,7 @@ def main():
     config.defrost()
     config.RANDOM_SEED = 7
 
-    config.PTH_GPU_ID = 0
+    config.PTH_GPU_ID = args.pth_gpu_id
     config.INPUT_TYPE = args.input_type
     config.MODEL_PATH = args.ddppo_checkpoint_path
     config.freeze()

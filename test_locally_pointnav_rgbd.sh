@@ -19,8 +19,9 @@ case $key in
 esac
 done
 
-docker run -v $(pwd)/habitat-challenge-data:/habitat-challenge-data \
-    --runtime=nvidia \
+docker run --runtime=nvidia \
+    -v $(pwd)/habitat-challenge-data:/habitat-challenge-data \  # OR  -v $(realpath data):/data
     -e "AGENT_EVALUATION_TYPE=local" \
-    ${DOCKER_NAME}\
-
+    -e "TRACK_CONFIG_FILE=config_files/challenge_pointnav2021.local.rgbd.yaml" \
+    -e "DDPPO_CONFIG_FILE=config_files/ddppo/ddppo_pointnav.yaml" \
+    ${DOCKER_NAME}
