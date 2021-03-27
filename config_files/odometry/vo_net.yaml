@@ -4,6 +4,28 @@ epochs: 30
 device: cuda:0
 seed: 1
 
+transforms:
+  DiscretizeDepth:
+    rank: 1
+    params:
+      n_channels: 0
+      min_depth: null # 0
+      max_depth: null # 1
+  ConvertToTensor:
+    rank: 2
+    params: null
+  PermuteChannels:
+    rank: 3
+    params: null
+  Resize:
+    rank: 4
+    params:
+      size: [360, 640]
+      interpolation: BILINEAR
+  Normalize:
+    rank: 5
+    params: null
+
 train:
   dataset:
     type: EgoMotionDataset
@@ -12,27 +34,6 @@ train:
       environment_dataset: gibson
       split: train
       invert_rotations: False
-    transforms:
-      DiscretizeDepth:
-        rank: 1
-        params:
-          n_channels: 0
-          min_depth: null # 0
-          max_depth: null # 1
-      ConvertToTensor:
-        rank: 2
-        params: null
-      PermuteChannels:
-        rank: 3
-        params: null
-      Resize:
-        rank: 4
-        params:
-          size: [360, 640]
-          interpolation: BILINEAR
-      Normalize:
-        rank: 5
-        params: null
     augmentations: null
   loader:
     type: EgoDataLoader
@@ -54,27 +55,6 @@ val:
       split: val
       invert_rotations: False
       d_depth_channels: 0
-    transforms:
-      DiscretizeDepth:
-        rank: 1
-        params:
-          n_channels: 0
-          min_depth: null # 0
-          max_depth: null # 1
-      ConvertToTensor:
-        rank: 2
-        params: null
-      PermuteChannels:
-        rank: 3
-        params: null
-      Resize:
-        rank: 4
-        params:
-          size: [360, 640]
-          interpolation: BILINEAR
-      Normalize:
-        rank: 5
-        params: null
     augmentations: null
   loader:
     type: EgoDataLoader
