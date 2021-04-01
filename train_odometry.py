@@ -135,7 +135,12 @@ def parse_args():
         help='number of items to form a dataset'
     )
     parser.add_argument(
-        '--invert-rotations',
+        '--invert-rotations-train',
+        action='store_true',
+        help='indicates whether to invert rotation actions'
+    )
+    parser.add_argument(
+        '--invert-rotations-val',
         action='store_true',
         help='indicates whether to invert rotation actions'
     )
@@ -157,9 +162,9 @@ def main():
     config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
     config.train.dataset.params.num_points = args.num_dataset_items
-    config.train.dataset.params.invert_rotations = args.invert_rotations
+    config.train.dataset.params.invert_rotations = args.invert_rotations_train
     config.val.dataset.params.num_points = args.num_dataset_items
-    config.val.dataset.params.invert_rotations = args.invert_rotations
+    config.val.dataset.params.invert_rotations = args.invert_rotations_val
     config.freeze()
 
     init_experiment(config)
