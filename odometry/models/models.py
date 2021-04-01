@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from segmentation_models_pytorch.encoders import get_encoder
+from habitat_baselines.rl.ddppo.policy import resnet
 
 
 class DropoutPart(nn.Module):
@@ -100,3 +101,61 @@ class VONet(nn.Module):
             output = encoder(encoder_input)
 
         return output[-1].view(-1).size(0)
+
+
+class VONetV2(VONet):
+    def forward(self, x, action=None, collision=None):
+        x = self.encoder(x)
+        x = self.flatten(x)
+        if self.action_embedding:
+            x = torch.cat([self.action_embedding(action).detach(), x], 1)
+        if self.collision_embedding:
+            x = torch.cat([self.collision_embedding(collision).detach(), x], 1)
+        x = self.fc(x)
+
+        return x
+
+    @classmethod
+    def from_config(cls, model_config):
+        model_params = model_config.params
+        encoder_params = model_params.encoder.params
+        fc_params = model_params.fc.params
+
+        action_embedding = nn.Embedding(
+            num_embeddings=model_params.n_action_values,
+            embedding_dim=model_params.action_embedding_size
+        ) if model_params.action_embedding_size > 0 else None
+
+        collision_embedding = nn.Embedding(
+            num_embeddings=model_params.n_collision_values,
+            embedding_dim=model_params.collision_embedding_size
+        ) if model_params.collision_embedding_size > 0 else None
+
+        backbone = getattr(resnet, model_params.encoder.type)(
+            encoder_params.in_channels,
+            encoder_params.base_planes,
+            encoder_params.ngroups
+        )
+
+        encoder = nn.Sequential(
+            backbone,
+            nn.Conv2d(
+                backbone.final_channels,
+                encoder_params.num_compression_channels,
+                kernel_size=3,
+                padding=1,
+                bias=False,
+            ),
+            nn.GroupNorm(1, encoder_params.num_compression_channels),
+            nn.ReLU(True),
+        )
+
+        fc = cls.create_fc_layers(
+            encoder_output_size=cls.compute_output_size(encoder, encoder_params),
+            embedding_size=model_params.collision_embedding_size + model_params.action_embedding_size,
+            hidden_size=fc_params.hidden_size,
+            output_size=fc_params.output_size,
+            p_dropout=fc_params.p_dropout
+        )
+
+        return cls(encoder, fc, action_embedding, collision_embedding)

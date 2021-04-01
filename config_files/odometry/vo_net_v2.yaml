@@ -1,0 +1,104 @@
+experiment_name: smoke
+log_dir: ../experiments
+epochs: 30
+device: cuda:0
+seed: 1
+
+transforms:
+  DiscretizeDepth:
+    rank: 1
+    params:
+      n_channels: 0
+      min_depth: null # 0
+      max_depth: null # 1
+  ConvertToTensor:
+    rank: 2
+    params: null
+  PermuteChannels:
+    rank: 3
+    params: null
+  Resize:
+    rank: 4
+    params:
+      size: [180, 320]
+      interpolation: BILINEAR
+  Normalize:
+    rank: 5
+    params: null
+
+train:
+  dataset:
+    type: EgoMotionDataset
+    params:
+      data_root: /datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo/trajectory-noisy
+      environment_dataset: gibson
+      split: train
+      invert_rotations: False
+    augmentations: null
+  loader:
+    type: EgoDataLoader
+    params:
+      batch_size: 16
+      num_workers: 4
+      shuffle: True
+      sampler: null
+  metrics:
+    - translation_mae
+    - rotation_mae
+
+val:
+  dataset:
+    type: EgoMotionDataset
+    params:
+      data_root: /datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo/trajectory-noisy
+      environment_dataset: gibson
+      split: val
+      invert_rotations: False
+      d_depth_channels: 0
+    augmentations: null
+  loader:
+    type: EgoDataLoader
+    params:
+      batch_size: 16
+      num_workers: 4
+      shuffle: False
+      sampler: null
+  metrics:
+    - translation_mae
+    - rotation_mae
+
+model:
+  type: VONetV2
+  save: True
+  params:
+    encoder:
+      type: resnet18
+      params:
+        in_channels: 8
+        base_planes: 32
+        ngroups: 16 # base_planes // 2
+        num_compression_channels: 35 # 2100 - flat size
+        in_height: 180
+        in_width: 320
+    fc:
+      params:
+        hidden_size: [512, 512]
+        output_size: 4
+        p_dropout: 0
+    collision_embedding_size: 0
+    action_embedding_size: 16
+
+loss:
+  type: PoseLoss
+  params:
+    alpha: 1.
+    beta: 10.
+
+optim:
+  type: Adam
+  params:
+    lr: 0.0001
+
+stopper:
+  params:
+    patience: 12
