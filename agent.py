@@ -39,7 +39,6 @@ from habitat_baselines.common.obs_transformers import (
 from habitat_baselines.config.default import get_config
 from habitat_baselines.utils.common import batch_obs
 
-import habitat_extensions.sensors  # noqa - required to register a sensor to baseline_registry
 from odometry.config.default import get_config as get_vo_config
 from odometry.dataset import make_transforms
 from odometry.models import make_model
@@ -346,16 +345,16 @@ class PPOAgentV2(PPOAgent):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--agent-type", default="PPOAgentV2", choices=["PPOAgentV2", "PPOAgent"])
-    parser.add_argument("--input-type", default="blind", choices=["rgb", "depth", "rgbd"])
+    parser.add_argument("--agent-type", type=str, choices=["PPOAgentV2", "PPOAgent"], default="PPOAgentV2")
+    parser.add_argument("--input-type", type=str, choices=["rgb", "depth", "rgbd"], default="rgbd")
     parser.add_argument("--evaluation", type=str, required=True, choices=["local", "remote"])
-    parser.add_argument("--ddppo-config-path", required=True, type=str)
-    parser.add_argument("--ddppo-checkpoint-path", required=True, type=str)
-    parser.add_argument("--vo-config-path", default="", type=str)
-    parser.add_argument("--vo-checkpoint-path", default="", type=str)
+    parser.add_argument("--ddppo-config-path", type=str, required=True)
+    parser.add_argument("--ddppo-checkpoint-path", type=str, required=True)
+    parser.add_argument("--vo-config-path", type=str, default="vo_config.yaml")
+    parser.add_argument("--vo-checkpoint-path", type=str, default="vo.ckpt.pth")
     parser.add_argument("--rotation-regularization-on", action='store_true')
-    parser.add_argument("--pth-gpu-id", default=0, type=int)
-    parser.add_argument("--seed", default=24121997, type=int)
+    parser.add_argument("--pth-gpu-id", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=24121997)
     args = parser.parse_args()
 
     config_paths = os.environ["CHALLENGE_CONFIG_FILE"]
