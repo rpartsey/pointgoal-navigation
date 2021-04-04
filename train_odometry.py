@@ -205,7 +205,8 @@ def main():
 
         early_stopping(val_metrics['loss'])
         if config.model.save and early_stopping.counter == 0:
-            torch.save(model.state_dict(), config.model.best_checkpoint_path)
+            best_checkpoint_path = config.model.best_checkpoint_path.replace('.pt', f'_{str(epoch).zfill(2)}e.pt')
+            torch.save(model.state_dict(), best_checkpoint_path)
             print('Saved best model checkpoint to disk.')
         if early_stopping.early_stop:
             print(f'Early stopping after {epoch} epochs.')
