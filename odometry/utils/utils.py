@@ -64,4 +64,5 @@ def transform_batch(batch):
 
 
 def polar_to_cartesian(rho, phi):
-    return np.array([rho * np.sin(phi), 0, -rho * np.cos(phi)])
+    return np.array([rho * np.sin(-phi), 0, -rho * np.cos(-phi)])
+
