@@ -7,8 +7,9 @@ import torch
 from habitat.config import Config
 from habitat_baselines.common.baseline_registry import baseline_registry
 
-import habitat_extensions.sensors      # noqa - required to register new sensors to baseline_registry
-import habitat_baselines_extensions.rl # noqa - required to register a joint PPO & VO  and PPOTrainerJoint
+import habitat_extensions.sensors           # noqa - required to register new sensors to baseline_registry
+import habitat_baselines_extensions.rl      # noqa - required to register joint PPO & VO and PPOTrainerJoint
+import habitat_baselines_extensions.common  # noqa - required to register observation transforms
 from habitat_baselines_extensions.config import get_config
 
 

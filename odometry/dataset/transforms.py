@@ -14,7 +14,7 @@ class DiscretizeDepth:
     def __call__(self, data):
         if self.n_channels > 1:
             data.update({
-                k.replace('depth', 'depth_discretized'): self._discretize(v)
+                k.replace('depth', 'depth_discretized'): self._discretize(v) if isinstance(v, np.ndarray) else self._discretize_tensor(v)
                 for k, v in data.items() if 'depth' in k
             })
 
@@ -34,6 +34,23 @@ class DiscretizeDepth:
 
         repeated_depth = depth.repeat(self.n_channels, axis=2)
         onehot_depth = np.logical_and(lower_b <= repeated_depth, repeated_depth < upper_b).astype(depth.dtype)
+
+        return onehot_depth
+
+    def _discretize_tensor(self, depth):
+        if self.min_depth is None and self.max_depth is None:
+            min_v, max_v = depth.min(), depth.max()
+        else:
+            min_v, max_v = self.min_depth, self.max_depth
+
+        bins = torch.linspace(min_v, max_v, steps=self.n_channels + 1).to(depth.device)
+        bins[-1] = torch.finfo(bins.dtype).max
+
+        lower_b = bins[:-1]
+        upper_b = bins[1:]
+
+        repeated_depth = depth.repeat(1, 1, self.n_channels)
+        onehot_depth = torch.logical_and(lower_b <= repeated_depth, repeated_depth < upper_b).type(depth.dtype)
 
         return onehot_depth
 

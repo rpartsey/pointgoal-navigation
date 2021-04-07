@@ -48,7 +48,7 @@ class PPO(BaselinePPO):
             use_normalized_advantage
         )
         # VO model initialization
-        config_path = 'config_files/odometry/vo_net.yaml'
+        config_path = 'config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.15_poseloss1._1._180x320_embedd_act_hc2021_vo2_joint.yaml'
         config = get_config(config_path, new_keys_allowed=True)
 
         # config.defrost()
@@ -68,6 +68,7 @@ class PPO(BaselinePPO):
         self.observations_transforms = make_transforms(config.train.dataset.transforms)
         self.vo_optimizer = make_optimizer(config.optim, self.vo_model.parameters())
         self.vo_loss_f = make_loss(config.loss)
+        self.depth_discretization_on = config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0
         self.vo_writer = vo_writer
         self.num_updates_done = 0
         self.vo_updates_counter = 0
@@ -197,10 +198,10 @@ class PPO(BaselinePPO):
                     visual_observations = []
                     for i in frame_indices[:self.vo_model_batch_size]:
                         visual_observations.append({
-                            'source_rgb': observations['rgb'][i].cpu().numpy(),
-                            'target_rgb': observations['rgb'][i+1].cpu().numpy(),
-                            'source_depth': observations['depth'][i].cpu().numpy(),
-                            'target_depth': observations['depth'][i+1].cpu().numpy()
+                            'source_rgb': observations['vo_rgb'][i],  # .cpu().numpy(),
+                            'target_rgb': observations['vo_rgb'][i+1],  #.cpu().numpy(),
+                            'source_depth': observations['vo_depth'][i],  #.cpu().numpy(),
+                            'target_depth': observations['vo_depth'][i+1]  #.cpu().numpy()
                         })
                         egomotions.append(observations['egomotion'][i+1])
 
@@ -213,17 +214,23 @@ class PPO(BaselinePPO):
                         'target_rgb': [],
                         'source_depth': [],
                         'target_depth': [],
+                        'source_depth_discretized': [],
+                        'target_depth_discretized': []
                     }
                     for obs in visual_observations:
                         batch['source_rgb'].append(obs['source_rgb'])
                         batch['target_rgb'].append(obs['target_rgb'])
                         batch['source_depth'].append(obs['source_depth'])
                         batch['target_depth'].append(obs['target_depth'])
+                        batch['source_depth_discretized'].append(obs['source_depth_discretized'])
+                        batch['target_depth_discretized'].append(obs['source_depth_discretized'])
 
                     batch['source_rgb'] = torch.stack(batch['source_rgb'])
                     batch['target_rgb'] = torch.stack(batch['target_rgb'])
                     batch['source_depth'] = torch.stack(batch['source_depth'])
                     batch['target_depth'] = torch.stack(batch['target_depth'])
+                    batch['source_depth_discretized'] = torch.stack(batch['source_depth_discretized'])
+                    batch['target_depth_discretized'] = torch.stack(batch['target_depth_discretized'])
 
                     batch, embeddings, _ = transform_batch(batch)
                     batch = batch.to(self.vo_device)
@@ -263,7 +270,7 @@ class PPO(BaselinePPO):
 
             self.vo_updates_counter = 0
 
-        if self.num_updates_done % 4000 == 0:
+        if self.num_updates_done % 100 == 0:
             torch.save(self.vo_model.state_dict(), f'vo_tb/ckpt_{self.num_updates_done}.pt')
 
         return value_loss_epoch, action_loss_epoch, dist_entropy_epoch
