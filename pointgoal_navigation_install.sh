@@ -43,7 +43,7 @@ cd ..
 
 git clone https://github.com/facebookresearch/habitat-lab.git
 cd habitat-lab
-git checkout 856d4b08c1a2632626bf0d205bf46471a99502b7 # challenge-2021
+git checkout ac4339ed7e9bafb5e45fee9c5cf68095f40edee2 # challenge-2021
 
 # install both habitat and habitat_baselines
 pip install -r requirements.txt
