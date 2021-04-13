@@ -31,31 +31,32 @@ def parse_args():
         required=True,
         type=str,
         choices=['ddppo', 'spf'],
-        help="/datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo2/trajectory-noisy",
     )
     parser.add_argument(
         "--data-dir",
         required=True,
         type=str,
-        help="/datasets/extra_space2/rpartsey/3d-navigation/habitat/pointnav-egomotion/vo2/trajectory-noisy",
+        help="path to the directory where the generated dataset will be stored",
     )
     parser.add_argument(
         "--config-file",
         required=True,
         type=str,
-        help="../config_files/ddppo/ddppo_pointnav.yaml",
+        help="path to the agent configuration file",
     )
     parser.add_argument(
         "--base-task-config-file",
         required=True,
         type=str,
-        help="../config_files/challenge_pointnav2020_gt_loc.local.rgbd.yaml",
+        help="path to the task configuration file "
+             "(if agent-type is ddppo then config should contain "
+             "POINTGOAL_WITH_GPS_COMPASS_SENSOR sensor & COLLISIONS measure)",
     )
     parser.add_argument(
         "--model-path",
-        required=True,
+        required=False,
         type=str,
-        help="/home/rpartsey/code/3d-navigation/related_works/egolocalization/checkpoints/pointnav2020_gt_loc_rgbd_ckpt.199.pth"
+        help="path to the ddppo checkpoint if agent-type is ddppo"
     )
     parser.add_argument(
         "--dataset",
@@ -75,7 +76,7 @@ def parse_args():
         "--gibson-votes-csv",
         required=True,
         type=str,
-        help="data/datasets/pointnav/gibson/v2/gibson_quality_ratings.csv",
+        help="path to the gibson_quality_ratings.csv",
     )
     parser.add_argument(
         "--num-episode-sample",
