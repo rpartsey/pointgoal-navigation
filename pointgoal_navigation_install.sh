@@ -6,7 +6,7 @@ set -e
 git checkout main
 
 conda create -n pointgoal-navigation-env python=3.6 cmake=3.14.0 -y
-source ~/miniconda/etc/profile.d/conda.sh
+source ~/miniconda3/etc/profile.d/conda.sh
 conda activate pointgoal-navigation-env
 
 #   navigate one directory up
