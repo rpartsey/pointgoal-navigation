@@ -15,6 +15,7 @@ import quaternion
 import numba
 import numpy as np
 import torch
+import torchvision.transforms.functional as F
 from gym.spaces import Box
 from gym.spaces import Dict as SpaceDict
 from gym.spaces import Discrete
@@ -90,6 +91,7 @@ class PointgoalEstimator:
         self.action_embedding_on = action_embedding_on
         self.depth_discretization_on = depth_discretization_on
         self.rotation_regularization_on = rotation_regularization_on
+        self.vertical_flip_on = True
         self.prev_observations = None
         self.pointgoal = None
         self.device = device
@@ -138,7 +140,21 @@ class PointgoalEstimator:
             visual_obs['action'] = action - 1  # shift all action ids as we don't use 0 - STOP
 
         visual_obs = self.obs_transforms(visual_obs)
-        batch = {k: v.unsqueeze(0) for k, v in visual_obs.items()}
+
+        if self.vertical_flip_on:
+            batch = {}
+            if self.action_embedding_on:
+                visual_obs_action = visual_obs.pop('action')
+                vflip_action = visual_obs_action.clone()
+                if action in ROTATION_ACTIONS:
+                    vflip_action.fill_(INVERSE_ACTION[action] - 1)
+                batch['action'] = torch.cat([visual_obs_action.unsqueeze(0), vflip_action.unsqueeze(0)], 0)
+
+            for k, v in visual_obs.items():
+                batch[k] = torch.cat([v.unsqueeze(0), F.vflip(v.permute(1, 2, 0)).permute(2, 0, 1).unsqueeze(0)], 0)
+
+        else:
+            batch = {k: v.unsqueeze(0) for k, v in visual_obs.items()}
 
         if self.rotation_regularization_on and (action in ROTATION_ACTIONS):
             batch.update({
@@ -154,9 +170,9 @@ class PointgoalEstimator:
                 })
             if self.action_embedding_on:
                 batch_action = batch['action']
-                inverse_action = batch_action.clone().fill_(INVERSE_ACTION[action] - 1)
+                vflip_action = batch_action.clone().fill_(INVERSE_ACTION[action] - 1)
                 batch.update({
-                    'action': torch.cat([batch_action, inverse_action], 0)
+                    'action': torch.cat([batch_action, vflip_action], 0)
                 })
 
         batch, embeddings, _ = transform_batch(batch)
@@ -166,8 +182,23 @@ class PointgoalEstimator:
 
         with torch.no_grad():
             egomotion = self.vo_model(batch, **embeddings)
-            if egomotion.size(0) == 2:
+
+            if not self.vertical_flip_on and self.rotation_regularization_on and (action in ROTATION_ACTIONS):
                 egomotion = (egomotion[:1] + -egomotion[1:]) / 2
+
+            elif self.vertical_flip_on and self.rotation_regularization_on and (action in ROTATION_ACTIONS):
+                mask = torch.tensor([[-1, 1, 1, -1]], dtype=egomotion.dtype).to(egomotion.device)
+                egomotion[1:2] = egomotion[1:2] * mask
+                egomotion[3:] = egomotion[3:] * (mask * -1)
+                egomotion = (egomotion[:1] + egomotion[1:2] + egomotion[2:3] + egomotion[3:]) / 4
+
+            elif self.vertical_flip_on and (not self.rotation_regularization_on or self.rotation_regularization_on and (action not in ROTATION_ACTIONS)):
+                mask = torch.tensor([[-1, 1, 1, -1]], dtype=egomotion.dtype).to(egomotion.device)
+                egomotion[1:] = egomotion[1:] * mask
+                egomotion = (egomotion[:1] + egomotion[1:]) / 2
+
+            else:
+                raise ValueError('Unexpected condition is met!')
 
         return egomotion.squeeze(0).cpu()
 
