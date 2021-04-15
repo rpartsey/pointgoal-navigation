@@ -113,7 +113,26 @@ class PointgoalEstimator:
         )
 
     def __call__(self, observations, action):
-        egomotion_estimates = self._compute_egomotion(observations, action)
+        visual_obs = {
+            'source_rgb': self.prev_observations['rgb'],
+            'target_rgb': observations['rgb'],
+            'source_depth': self.prev_observations['depth'],
+            'target_depth': observations['depth']
+        }
+        egomotion_estimates = self._compute_egomotion(visual_obs, action)
+
+        if self.vertical_flip_on:
+            vflip_visual_obs = {
+                'source_rgb': np.fliplr(self.prev_observations['rgb']).copy(),
+                'target_rgb': np.fliplr(observations['rgb']).copy(),
+                'source_depth': np.fliplr(self.prev_observations['depth']).copy(),
+                'target_depth': np.fliplr(observations['depth']).copy()
+            }
+            vflip_action = INVERSE_ACTION[action] if action in ROTATION_ACTIONS else action
+            vflip_egomotion_estimates = self._compute_egomotion(vflip_visual_obs, vflip_action)
+
+            egomotion_estimates = (egomotion_estimates + vflip_egomotion_estimates * torch.tensor([-1, 1, 1, -1])) / 2
+
         direction_vector_agent_cart = self._compute_pointgoal(*egomotion_estimates)
         assert direction_vector_agent_cart[3] == 1.
 
@@ -129,32 +148,12 @@ class PointgoalEstimator:
         self.prev_observations = observations
         self.pointgoal = polar_to_cartesian(*observations[PointGoalSensor.cls_uuid])
 
-    def _compute_egomotion(self, observations, action):
-        visual_obs = {
-            'source_rgb': self.prev_observations['rgb'],
-            'target_rgb': observations['rgb'],
-            'source_depth': self.prev_observations['depth'],
-            'target_depth': observations['depth']
-        }
+    def _compute_egomotion(self, visual_obs, action):
         if self.action_embedding_on:
             visual_obs['action'] = action - 1  # shift all action ids as we don't use 0 - STOP
 
         visual_obs = self.obs_transforms(visual_obs)
-
-        if self.vertical_flip_on:
-            batch = {}
-            if self.action_embedding_on:
-                visual_obs_action = visual_obs.pop('action')
-                vflip_action = visual_obs_action.clone()
-                if action in ROTATION_ACTIONS:
-                    vflip_action.fill_(INVERSE_ACTION[action] - 1)
-                batch['action'] = torch.cat([visual_obs_action.unsqueeze(0), vflip_action.unsqueeze(0)], 0)
-
-            for k, v in visual_obs.items():
-                batch[k] = torch.cat([v.unsqueeze(0), F.vflip(v.permute(1, 2, 0)).permute(2, 0, 1).unsqueeze(0)], 0)
-
-        else:
-            batch = {k: v.unsqueeze(0) for k, v in visual_obs.items()}
+        batch = {k: v.unsqueeze(0) for k, v in visual_obs.items()}
 
         if self.rotation_regularization_on and (action in ROTATION_ACTIONS):
             batch.update({
@@ -182,23 +181,8 @@ class PointgoalEstimator:
 
         with torch.no_grad():
             egomotion = self.vo_model(batch, **embeddings)
-
-            if not self.vertical_flip_on and self.rotation_regularization_on and (action in ROTATION_ACTIONS):
+            if egomotion.size(0) == 2:
                 egomotion = (egomotion[:1] + -egomotion[1:]) / 2
-
-            elif self.vertical_flip_on and self.rotation_regularization_on and (action in ROTATION_ACTIONS):
-                mask = torch.tensor([[-1, 1, 1, -1]], dtype=egomotion.dtype).to(egomotion.device)
-                egomotion[1:2] = egomotion[1:2] * mask
-                egomotion[3:] = egomotion[3:] * (mask * -1)
-                egomotion = (egomotion[:1] + egomotion[1:2] + egomotion[2:3] + egomotion[3:]) / 4
-
-            elif self.vertical_flip_on and (not self.rotation_regularization_on or self.rotation_regularization_on and (action not in ROTATION_ACTIONS)):
-                mask = torch.tensor([[-1, 1, 1, -1]], dtype=egomotion.dtype).to(egomotion.device)
-                egomotion[1:] = egomotion[1:] * mask
-                egomotion = (egomotion[:1] + egomotion[1:]) / 2
-
-            else:
-                raise ValueError('Unexpected condition is met!')
 
         return egomotion.squeeze(0).cpu()
 
