@@ -41,7 +41,7 @@ class EgoMotionDataset(Dataset):
         if invert_rotations:
             self._add_inverse_rotations()
         self.num_dataset_points = num_points or len(self.jsons)
-        self.meta_data = self.jsons[:num_points]
+        self.meta_data = self.jsons[:self.num_dataset_points]
 
     def _load_jsons(self):
         data = []
@@ -99,7 +99,7 @@ class EgoMotionDataset(Dataset):
         return item
 
     def __len__(self):
-        return len(self.meta_data)
+        return self.num_dataset_points
 
     @staticmethod
     def _swap_values(item, k1, k2):

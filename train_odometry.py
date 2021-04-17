@@ -174,6 +174,11 @@ def main():
     train_loader = make_data_loader(config.train.loader, train_dataset)
     train_metric_fns = make_metrics(config.train.metrics) if config.train.metrics else []
 
+    if hasattr(config, 'train_val'):
+        train_val_dataset = make_dataset(config.train_val.dataset)
+        train_val_loader = make_data_loader(config.train_val.loader, train_val_dataset)
+        train_val_metric_fns = make_metrics(config.train_val.metrics) if config.train_val.metrics else []
+
     val_dataset = make_dataset(config.val.dataset)
     val_loader = make_data_loader(config.val.loader, val_dataset)
     val_metric_fns = make_metrics(config.val.metrics) if config.val.metrics else []
@@ -192,6 +197,8 @@ def main():
 
     train_writer = SummaryWriter(log_dir=os.path.join(config.tb_dir, 'train'))
     val_writer = SummaryWriter(log_dir=os.path.join(config.tb_dir, 'val'))
+    if hasattr(config, 'train_val'):
+        train_val_writer = SummaryWriter(log_dir=os.path.join(config.tb_dir, 'train_val'))
 
     for epoch in range(1, config.epochs + 1):
         print(f'Epoch {epoch}')
@@ -202,6 +209,11 @@ def main():
         val_metrics = val(model, val_loader, loss_f, val_metric_fns, device)
         write_metrics(epoch, val_metrics, val_writer)
         print_metrics('Val', val_metrics)
+
+        if hasattr(config, 'train_val'):
+            train_val_metrics = val(model, train_val_loader, loss_f, train_val_metric_fns, device)
+            write_metrics(epoch, train_val_metrics, train_val_writer)
+            print_metrics('Train-val', train_val_metrics)
 
         early_stopping(val_metrics['loss'])
         if config.model.save and early_stopping.counter == 0:
@@ -217,6 +229,8 @@ def main():
 
     train_writer.close()
     val_writer.close()
+    if hasattr(config, 'train_val'):
+        train_val_writer.close()
 
     if config.model.save:
         torch.save(model.state_dict(), config.model.last_checkpoint_path)
