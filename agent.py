@@ -169,9 +169,9 @@ class PointgoalEstimator:
                 })
             if self.action_embedding_on:
                 batch_action = batch['action']
-                vflip_action = batch_action.clone().fill_(INVERSE_ACTION[action] - 1)
+                inverse_action = batch_action.clone().fill_(INVERSE_ACTION[action] - 1)
                 batch.update({
-                    'action': torch.cat([batch_action, vflip_action], 0)
+                    'action': torch.cat([batch_action, inverse_action], 0)
                 })
 
         batch, embeddings, _ = transform_batch(batch)
