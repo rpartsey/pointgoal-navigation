@@ -6,7 +6,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from habitat_extensions.config import get_config
+from odometry.config.default import get_config
 from odometry.dataset import make_dataset, make_data_loader
 from odometry.losses import make_loss
 from odometry.metrics import make_metrics
@@ -157,9 +157,10 @@ def main():
     args = parse_args()
     config_path = os.path.join(args.experiment_dir, 'config.yaml')
 
-    config = get_config(config_path)
+    config = get_config(config_path, new_keys_allowed=True)
     config.defrost()
     config.val.dataset.params.invert_rotations = args.invert_rotations
+    config.val.dataset.params.num_points = None
     config.val.loader.params.batch_size = args.batch_size
     config.val.loader.params.num_workers = args.num_workers
     config.freeze()

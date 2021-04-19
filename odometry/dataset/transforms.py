@@ -129,6 +129,8 @@ class Normalize:
             rotation = data['egomotion']['rotation']
             if rotation > np.deg2rad(300):
                 rotation -= (2 * np.pi)
+            elif rotation < -np.deg2rad(300):
+                rotation += (2 * np.pi)
             data['egomotion']['rotation'] = rotation
 
         return data
