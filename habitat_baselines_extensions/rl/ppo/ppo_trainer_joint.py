@@ -22,6 +22,8 @@ from habitat_baselines.common.obs_transformers import (
 )
 from habitat_baselines.common.rollout_storage import RolloutStorage
 from habitat_baselines.common.tensorboard_utils import TensorboardWriter
+from habitat_baselines.rl.ppo import PPO
+from habitat_baselines.rl.ddppo.algo import DDPPO
 from habitat_baselines.rl.ddppo.algo.ddp_utils import (
     EXIT,
     REQUEUE,
@@ -35,12 +37,56 @@ from habitat_baselines.rl.ddppo.algo.ddp_utils import (
 )
 from habitat_baselines.utils.common import batch_obs
 
-from .ppo_joint import PPO, DDPPO
+# from .ppo_joint import PPO, DDPPO
+from odometry.config.default import get_config
+from odometry.dataset import make_transforms
+from odometry.models import make_model
+from odometry.losses import make_loss
+from odometry.optims import make_optimizer
+from odometry.utils import transform_batch
 
 
 @baseline_registry.register_trainer(name="ddppo-joint")
 @baseline_registry.register_trainer(name="ppo-joint")
 class PPOTrainerJoint(PPOTrainer):
+    def __init__(self, config=None):
+        super().__init__(config)
+        self.vo_device = None
+        self.vo_batch_size = None
+        self.vo_model = None
+        self.observations_transforms = None
+        self.vo_optimizer = None
+        self.vo_loss_f = None
+        self.depth_discretization_on = None
+        self.num_updates_done = 0
+        self.vo_updates_counter = 0
+
+    def _setup_visual_odometry(self):
+        # VO model initialization
+        config_path = 'config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.15_poseloss1._1._180x320_embedd_act_hc2021_vo2_joint.yaml'
+        config = get_config(config_path, new_keys_allowed=True)
+
+        # config.defrost()
+        # config.experiment_dir = os.path.join(config.log_dir, config.experiment_name)
+        # config.tb_dir = os.path.join(config.experiment_dir, 'tb')
+        # config.model.best_checkpoint_path = os.path.join(config.experiment_dir, 'best_checkpoint.pt')
+        # config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
+        # config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
+        # config.freeze()
+
+        # init_experiment(config)
+        # set_random_seed(config.seed) TODO: check if the seed can be set here
+
+        self.vo_device = torch.device(config.device)
+        self.vo_batch_size = config.train.loader.params.batch_size
+        self.vo_model = make_model(config.model).to(self.vo_device)
+        self.observations_transforms = make_transforms(config.train.dataset.transforms)
+        self.vo_optimizer = make_optimizer(config.optim, self.vo_model.parameters())
+        self.vo_loss_f = make_loss(config.loss)
+        self.depth_discretization_on = config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0
+        self.num_updates_done = 0
+        self.vo_updates_counter = 0
+
     def _setup_actor_critic_agent(self, ppo_cfg: Config) -> None:
         r"""Sets up actor critic and agent for PPO.
 
@@ -117,7 +163,6 @@ class PPOTrainerJoint(PPOTrainer):
             eps=ppo_cfg.eps,
             max_grad_norm=ppo_cfg.max_grad_norm,
             use_normalized_advantage=ppo_cfg.use_normalized_advantage,
-            vo_writer=self.vo_writer
         )
 
     def _init_train(self):
@@ -236,9 +281,135 @@ class PPOTrainerJoint(PPOTrainer):
             lambda: deque(maxlen=ppo_cfg.reward_window_size)
         )
 
+        # Visual odometry setup
+        self._setup_visual_odometry()
+
         self.env_time = 0.0
         self.pth_time = 0.0
         self.t_start = time.time()
+
+    def _train_visual_odometry(self):
+        # Visual Odometry
+        observations = self.rollouts.buffers["observations"]
+        dones = self.rollouts.buffers["masks"].clone().detach()
+
+        # sampling frames
+        T = self.rollouts.numsteps + 1
+        N = dones.view(T, -1).size(1)
+
+        rollout_boundaries = dones
+        rollout_boundaries = torch.logical_not(rollout_boundaries).nonzero(as_tuple=False)
+
+        episode_starts_transposed = (rollout_boundaries[:, 1] * T + rollout_boundaries[:, 0])
+        episode_starts_transposed = torch.cat([
+            episode_starts_transposed,
+            (torch.arange(1, N+1) * T).to(episode_starts_transposed.device)
+        ])
+        episode_starts_transposed, sorted_indices = torch.sort(
+            episode_starts_transposed, descending=False
+        )
+        rollout_intervals = list(zip(
+            episode_starts_transposed[:-1].cpu().numpy().tolist(),
+            episode_starts_transposed[1:].cpu().numpy().tolist()
+        ))
+
+        # assert len(rollout_intervals) > 0, f'\nDones:\n{dones}\nrollout_boundaries:\n{rollout_boundaries}\nepisode_starts_transposed:\n{episode_starts_transposed}\nrollout_intervals:\n{rollout_intervals}\n'
+
+        rollout_intervals = list(filter(lambda interval: interval[1] - interval[0] > 1, rollout_intervals))
+        rollout_intervals = sorted(rollout_intervals, key=lambda interval: interval[1] - interval[0], reverse=True)
+
+        # assert len(rollout_intervals) > 0, f'\nDones:\n{dones}\nrollout_boundaries:\n{rollout_boundaries}\nepisode_starts_transposed:\n{episode_starts_transposed}\nrollout_intervals:\n{rollout_intervals}\n'
+
+        if sum([interv[1] - interv[0] for interv in rollout_intervals]) >= self.vo_batch_size:
+            source_frame_indices = []
+            for interval in rollout_intervals:
+                source_frame_indices.extend(np.arange(*interval)[:-1])
+
+            num_frames_to_sample = (len(source_frame_indices) // self.vo_batch_size) * self.vo_batch_size
+            num_epochs = 2
+
+            self.vo_model.train()
+            for e in range(num_epochs):
+
+                vo_metrics = defaultdict(lambda: 0)
+                np.random.shuffle(source_frame_indices)
+
+                for batch_i in range(0, num_frames_to_sample, self.vo_batch_size):
+                    batch_indices = source_frame_indices[batch_i:batch_i+self.vo_batch_size]
+
+                    egomotions = []
+                    visual_observations = []
+                    for index in batch_indices:
+                        i = index % T
+                        j = index // T
+                        # assert i != 128, f'i != 128 {index}'
+                        visual_observations.append({
+                            'source_rgb': observations['vo_rgb'][i, j],  # .cpu().numpy(),
+                            'target_rgb': observations['vo_rgb'][i + 1, j],  # .cpu().numpy(),
+                            'source_depth': observations['vo_depth'][i, j],  # .cpu().numpy(),
+                            'target_depth': observations['vo_depth'][i + 1, j]  # .cpu().numpy()
+                        })
+                        egomotions.append(observations['egomotion'][i + 1, j])
+
+                    visual_observations = [
+                        self.observations_transforms(obs)
+                        for obs in visual_observations
+                    ]
+                    batch = {
+                        'source_rgb': [],
+                        'target_rgb': [],
+                        'source_depth': [],
+                        'target_depth': [],
+                        'source_depth_discretized': [],
+                        'target_depth_discretized': []
+                    }
+                    for obs in visual_observations:
+                        batch['source_rgb'].append(obs['source_rgb'])
+                        batch['target_rgb'].append(obs['target_rgb'])
+                        batch['source_depth'].append(obs['source_depth'])
+                        batch['target_depth'].append(obs['target_depth'])
+                        batch['source_depth_discretized'].append(obs['source_depth_discretized'])
+                        batch['target_depth_discretized'].append(obs['source_depth_discretized'])
+
+                    batch['source_rgb'] = torch.stack(batch['source_rgb'])
+                    batch['target_rgb'] = torch.stack(batch['target_rgb'])
+                    batch['source_depth'] = torch.stack(batch['source_depth'])
+                    batch['target_depth'] = torch.stack(batch['target_depth'])
+                    batch['source_depth_discretized'] = torch.stack(batch['source_depth_discretized'])
+                    batch['target_depth_discretized'] = torch.stack(batch['target_depth_discretized'])
+
+                    batch, embeddings, _ = transform_batch(batch)
+                    batch = batch.to(self.vo_device)
+                    for k, v in embeddings.items():
+                        embeddings[k] = v.to(self.vo_device)
+
+                    output = self.vo_model(batch, **embeddings)
+                    target = torch.stack(egomotions).to(self.vo_device)
+                    vo_loss, vo_loss_components = self.vo_loss_f(output, target)
+
+                    self.vo_optimizer.zero_grad()
+                    vo_loss.backward()
+                    self.vo_optimizer.step()
+
+                    vo_metrics['loss'] += vo_loss.item()
+                    for loss_component, value in vo_loss_components.items():
+                        vo_metrics[loss_component] += value.item()
+
+                    self.vo_updates_counter += 1
+
+                if self.vo_updates_counter:
+                    for metric_name in vo_metrics:
+                        vo_metrics[metric_name] /= self.vo_updates_counter
+
+                    for k, v in vo_metrics.items():
+                        self.vo_writer.add_scalar(f'metrics/{k}', v, self.num_updates_done)
+
+                    self.num_updates_done += 1
+                    self.vo_updates_counter = 0
+
+                if self.num_updates_done % 250 == 0:
+                    torch.save(self.vo_model.state_dict(), f'vo_tb/ckpt_{self.num_updates_done}.pt')
+
 
     @profiling_wrapper.RangeContext("train")
     def train(self) -> None:
@@ -248,7 +419,6 @@ class PPOTrainerJoint(PPOTrainer):
             None
         """
 
-        self.vo_writer = SummaryWriter(log_dir='vo_tb')
         self._init_train()
 
         count_checkpoints = 0
@@ -284,6 +454,7 @@ class PPOTrainerJoint(PPOTrainer):
 
         ppo_cfg = self.config.RL.PPO
 
+        self.vo_writer = SummaryWriter(log_dir='vo_tb')
         with (
                 TensorboardWriter(
                     self.config.TENSORBOARD_DIR, flush_secs=self.flush_secs
@@ -365,6 +536,9 @@ class PPOTrainerJoint(PPOTrainer):
 
                 if self._is_distributed:
                     self.num_rollouts_done_store.add("num_done", 1)
+
+                # Visual odometry update
+                self._train_visual_odometry()
 
                 (
                     value_loss,
