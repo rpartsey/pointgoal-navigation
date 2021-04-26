@@ -159,3 +159,45 @@ class VONetV2(VONet):
         )
 
         return cls(encoder, fc, action_embedding, collision_embedding)
+
+
+class VONetV3(VONetV2):
+    def __init__(self,  encoder, fc, action_embedding=None, collision_embedding=None):
+        super().__init__( encoder, fc, action_embedding, collision_embedding)
+        self.fc = nn.ModuleList(self.fc)
+
+    def forward(self, x, action=None, collision=None):
+        x = self.encoder(x)
+        x = self.flatten(x)
+        for fc_layer in self.fc:
+            if self.action_embedding:
+                x = torch.cat([self.action_embedding(action).detach(), x], 1)
+            if self.collision_embedding:
+                x = torch.cat([self.collision_embedding(collision).detach(), x], 1)
+            x = fc_layer(x)
+
+        return x
+
+    @staticmethod
+    def create_fc_layers(
+            encoder_output_size: int,
+            embedding_size: int,
+            hidden_size: list,
+            output_size: int,
+            p_dropout: float = 0.0
+    ):
+        hidden_size.insert(0, encoder_output_size)
+
+        layers = []
+        for i in range(len(hidden_size) - 1):
+            layers.append(nn.Sequential(
+                DropoutPart(p_dropout, embedding_size) if embedding_size > 0 else nn.Dropout(p_dropout),
+                nn.Linear(hidden_size[i] + embedding_size, hidden_size[i + 1]),
+                nn.ReLU(True),
+            ))
+        layers.append(nn.Sequential(
+            DropoutPart(p_dropout, embedding_size) if embedding_size > 0 else nn.Dropout(p_dropout),
+            nn.Linear(hidden_size[-1] + embedding_size, output_size)
+        ))
+
+        return layers
