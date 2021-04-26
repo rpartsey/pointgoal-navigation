@@ -15,7 +15,8 @@ CHECKPOINT_FOLDER: "data/new_checkpoints"
 NUM_UPDATES: -1
 TOTAL_NUM_STEPS: 2.5e9
 LOG_INTERVAL: 10
-NUM_CHECKPOINTS: 100
+CHECKPOINT_INTERVAL: 250
+NUM_CHECKPOINTS: -1
 # Force PyTorch to be single threaded as
 # this improves performance considerably
 FORCE_TORCH_SINGLE_THREADED: True

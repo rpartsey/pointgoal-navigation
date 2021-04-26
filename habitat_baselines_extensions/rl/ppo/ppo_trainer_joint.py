@@ -42,6 +42,7 @@ from odometry.config.default import get_config
 from odometry.dataset import make_transforms
 from odometry.models import make_model
 from odometry.losses import make_loss
+from odometry.models.models import init_distributed
 from odometry.optims import make_optimizer
 from odometry.utils import transform_batch
 
@@ -61,7 +62,7 @@ class PPOTrainerJoint(PPOTrainer):
         self.num_updates_done = 0
         self.vo_updates_counter = 0
 
-    def _setup_visual_odometry(self):
+    def _setup_visual_odometry(self, device_id):
         # VO model initialization
         config_path = 'config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.15_poseloss1._1._180x320_embedd_act_hc2021_vo2_joint.yaml'
         config = get_config(config_path, new_keys_allowed=True)
@@ -77,14 +78,14 @@ class PPOTrainerJoint(PPOTrainer):
         # init_experiment(config)
         # set_random_seed(config.seed) TODO: check if the seed can be set here
 
-        self.vo_device = torch.device(config.device)
+        self.vo_device = torch.device("cuda", device_id)
         self.vo_batch_size = config.train.loader.params.batch_size
         self.vo_model = make_model(config.model).to(self.vo_device)
         self.observations_transforms = make_transforms(config.train.dataset.transforms)
         self.vo_optimizer = make_optimizer(config.optim, self.vo_model.parameters())
         self.vo_loss_f = make_loss(config.loss)
         self.depth_discretization_on = config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0
-        self.num_updates_done = 0
+        # self.num_updates_done = 0
         self.vo_updates_counter = 0
 
     def _setup_actor_critic_agent(self, ppo_cfg: Config) -> None:
@@ -282,7 +283,9 @@ class PPOTrainerJoint(PPOTrainer):
         )
 
         # Visual odometry setup
-        self._setup_visual_odometry()
+        self._setup_visual_odometry(local_rank)
+        if self._is_distributed:
+            self.vo_model = init_distributed(self.vo_model, self.vo_device, find_unused_params=True)
 
         self.env_time = 0.0
         self.pth_time = 0.0
@@ -329,11 +332,9 @@ class PPOTrainerJoint(PPOTrainer):
             num_epochs = 2
 
             self.vo_model.train()
+            vo_metrics = defaultdict(lambda: 0)
             for e in range(num_epochs):
-
-                vo_metrics = defaultdict(lambda: 0)
                 np.random.shuffle(source_frame_indices)
-
                 for batch_i in range(0, num_frames_to_sample, self.vo_batch_size):
                     batch_indices = source_frame_indices[batch_i:batch_i+self.vo_batch_size]
 
@@ -397,19 +398,12 @@ class PPOTrainerJoint(PPOTrainer):
 
                     self.vo_updates_counter += 1
 
-                if self.vo_updates_counter:
-                    for metric_name in vo_metrics:
-                        vo_metrics[metric_name] /= self.vo_updates_counter
+            if self.vo_updates_counter:
+                for metric_name in vo_metrics:
+                    vo_metrics[metric_name] /= self.vo_updates_counter
+                self.vo_updates_counter = 0
 
-                    for k, v in vo_metrics.items():
-                        self.vo_writer.add_scalar(f'metrics/{k}', v, self.num_updates_done)
-
-                    self.num_updates_done += 1
-                    self.vo_updates_counter = 0
-
-                if self.num_updates_done % 250 == 0:
-                    torch.save(self.vo_model.state_dict(), f'vo_tb/ckpt_{self.num_updates_done}.pt')
-
+            return vo_metrics
 
     @profiling_wrapper.RangeContext("train")
     def train(self) -> None:
@@ -454,122 +448,128 @@ class PPOTrainerJoint(PPOTrainer):
 
         ppo_cfg = self.config.RL.PPO
 
-        self.vo_writer = SummaryWriter(log_dir='vo_tb')
         with (
-                TensorboardWriter(
-                    self.config.TENSORBOARD_DIR, flush_secs=self.flush_secs
-                )
+                SummaryWriter(log_dir='vo_tb')
                 if rank0_only()
                 else contextlib.suppress()
-        ) as writer:
-            while not self.is_done():
-                profiling_wrapper.on_start_step()
-                profiling_wrapper.range_push("train update")
+        ) as vo_writer:
+            with (
+                    TensorboardWriter(
+                        self.config.TENSORBOARD_DIR, flush_secs=self.flush_secs
+                    )
+                    if rank0_only()
+                    else contextlib.suppress()
+            ) as writer:
+                while not self.is_done():
+                    profiling_wrapper.on_start_step()
+                    profiling_wrapper.range_push("train update")
 
-                if ppo_cfg.use_linear_clip_decay:
-                    self.agent.clip_param = ppo_cfg.clip_param * (
-                            1 - self.percent_done()
+                    if ppo_cfg.use_linear_clip_decay:
+                        self.agent.clip_param = ppo_cfg.clip_param * (
+                                1 - self.percent_done()
+                        )
+
+                    if EXIT.is_set():
+                        profiling_wrapper.range_pop()  # train update
+
+                        self.envs.close()
+
+                        if REQUEUE.is_set() and rank0_only():
+                            requeue_stats = dict(
+                                env_time=self.env_time,
+                                pth_time=self.pth_time,
+                                count_checkpoints=count_checkpoints,
+                                num_steps_done=self.num_steps_done,
+                                num_updates_done=self.num_updates_done,
+                                _last_checkpoint_percent=self._last_checkpoint_percent,
+                                prev_time=(time.time() - self.t_start) + prev_time,
+                            )
+                            save_interrupted_state(
+                                dict(
+                                    state_dict=self.agent.state_dict(),
+                                    optim_state=self.agent.optimizer.state_dict(),
+                                    lr_sched_state=lr_scheduler.state_dict(),
+                                    config=self.config,
+                                    requeue_stats=requeue_stats,
+                                )
+                            )
+
+                        requeue_job()
+                        return
+
+                    self.agent.eval()
+                    count_steps_delta = 0
+                    profiling_wrapper.range_push("rollouts loop")
+
+                    profiling_wrapper.range_push("_collect_rollout_step")
+                    for buffer_index in range(self._nbuffers):
+                        self._compute_actions_and_step_envs(buffer_index)
+
+                    for step in range(ppo_cfg.num_steps):
+                        is_last_step = (
+                                self.should_end_early(step + 1)
+                                or (step + 1) == ppo_cfg.num_steps
+                        )
+
+                        for buffer_index in range(self._nbuffers):
+                            count_steps_delta += self._collect_environment_result(
+                                buffer_index
+                            )
+
+                            if (buffer_index + 1) == self._nbuffers:
+                                profiling_wrapper.range_pop()  # _collect_rollout_step
+
+                            if not is_last_step:
+                                if (buffer_index + 1) == self._nbuffers:
+                                    profiling_wrapper.range_push(
+                                        "_collect_rollout_step"
+                                    )
+
+                                self._compute_actions_and_step_envs(buffer_index)
+
+                        if is_last_step:
+                            break
+
+                    profiling_wrapper.range_pop()  # rollouts loop
+
+                    if self._is_distributed:
+                        self.num_rollouts_done_store.add("num_done", 1)
+
+                    # Visual odometry update
+                    vo_metrics = self._train_visual_odometry()
+
+                    (
+                        value_loss,
+                        action_loss,
+                        dist_entropy
+                    ) = self._update_agent()
+
+                    if ppo_cfg.use_linear_lr_decay:
+                        lr_scheduler.step()  # type: ignore
+
+                    self.num_updates_done += 1
+                    losses = self._coalesce_post_step(
+                        dict(value_loss=value_loss, action_loss=action_loss),
+                        count_steps_delta,
                     )
 
-                if EXIT.is_set():
+                    self._training_log(writer, losses, prev_time)
+                    if vo_writer:
+                        for k, v in vo_metrics.items():
+                            vo_writer.add_scalar(f'metrics/{k}', v, self.num_updates_done)
+
+                    # checkpoint model
+                    if rank0_only() and self.should_checkpoint():
+                        self.save_checkpoint(
+                            f"ckpt.{count_checkpoints}.pth",
+                            dict(
+                                step=self.num_steps_done,
+                                wall_time=(time.time() - self.t_start) + prev_time,
+                            ),
+                        )
+                        count_checkpoints += 1
+                        torch.save(self.vo_model.state_dict(), f'vo_tb/ckpt_{self.num_updates_done}.pt')
+
                     profiling_wrapper.range_pop()  # train update
 
-                    self.envs.close()
-
-                    if REQUEUE.is_set() and rank0_only():
-                        requeue_stats = dict(
-                            env_time=self.env_time,
-                            pth_time=self.pth_time,
-                            count_checkpoints=count_checkpoints,
-                            num_steps_done=self.num_steps_done,
-                            num_updates_done=self.num_updates_done,
-                            _last_checkpoint_percent=self._last_checkpoint_percent,
-                            prev_time=(time.time() - self.t_start) + prev_time,
-                        )
-                        save_interrupted_state(
-                            dict(
-                                state_dict=self.agent.state_dict(),
-                                optim_state=self.agent.optimizer.state_dict(),
-                                lr_sched_state=lr_scheduler.state_dict(),
-                                config=self.config,
-                                requeue_stats=requeue_stats,
-                            )
-                        )
-
-                    requeue_job()
-                    return
-
-                self.agent.eval()
-                count_steps_delta = 0
-                profiling_wrapper.range_push("rollouts loop")
-
-                profiling_wrapper.range_push("_collect_rollout_step")
-                for buffer_index in range(self._nbuffers):
-                    self._compute_actions_and_step_envs(buffer_index)
-
-                for step in range(ppo_cfg.num_steps):
-                    is_last_step = (
-                            self.should_end_early(step + 1)
-                            or (step + 1) == ppo_cfg.num_steps
-                    )
-
-                    for buffer_index in range(self._nbuffers):
-                        count_steps_delta += self._collect_environment_result(
-                            buffer_index
-                        )
-
-                        if (buffer_index + 1) == self._nbuffers:
-                            profiling_wrapper.range_pop()  # _collect_rollout_step
-
-                        if not is_last_step:
-                            if (buffer_index + 1) == self._nbuffers:
-                                profiling_wrapper.range_push(
-                                    "_collect_rollout_step"
-                                )
-
-                            self._compute_actions_and_step_envs(buffer_index)
-
-                    if is_last_step:
-                        break
-
-                profiling_wrapper.range_pop()  # rollouts loop
-
-                if self._is_distributed:
-                    self.num_rollouts_done_store.add("num_done", 1)
-
-                # Visual odometry update
-                self._train_visual_odometry()
-
-                (
-                    value_loss,
-                    action_loss,
-                    dist_entropy
-                ) = self._update_agent()
-
-                if ppo_cfg.use_linear_lr_decay:
-                    lr_scheduler.step()  # type: ignore
-
-                self.num_updates_done += 1
-                losses = self._coalesce_post_step(
-                    dict(value_loss=value_loss, action_loss=action_loss),
-                    count_steps_delta,
-                )
-
-                self._training_log(writer, losses, prev_time)
-
-                # checkpoint model
-                if rank0_only() and self.should_checkpoint():
-                    self.save_checkpoint(
-                        f"ckpt.{count_checkpoints}.pth",
-                        dict(
-                            step=self.num_steps_done,
-                            wall_time=(time.time() - self.t_start) + prev_time,
-                        ),
-                    )
-                    count_checkpoints += 1
-
-                profiling_wrapper.range_pop()  # train update
-
-            self.envs.close()
-
-        self.vo_writer.close()
+                self.envs.close()

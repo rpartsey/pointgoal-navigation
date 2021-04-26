@@ -4,6 +4,23 @@ from segmentation_models_pytorch.encoders import get_encoder
 from habitat_baselines.rl.ddppo.policy import resnet
 
 
+def init_distributed(model, device, find_unused_params: bool = True):
+    if torch.cuda.is_available():
+        ddp = nn.parallel.DistributedDataParallel(
+            model,
+            device_ids=[device],
+            output_device=device,
+            find_unused_parameters=find_unused_params,
+        )
+    else:
+        ddp = nn.parallel.DistributedDataParallel(
+            model,
+            find_unused_parameters=find_unused_params,
+        )
+
+    return ddp
+
+
 class DropoutPart(nn.Module):
     def __init__(self, p, embedding_size):
         super().__init__()
