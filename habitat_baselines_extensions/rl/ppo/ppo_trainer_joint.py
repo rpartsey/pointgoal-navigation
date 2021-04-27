@@ -59,7 +59,6 @@ class PPOTrainerJoint(PPOTrainer):
         self.vo_optimizer = None
         self.vo_loss_f = None
         self.depth_discretization_on = None
-        self.num_updates_done = 0
         self.vo_updates_counter = 0
 
     def _setup_visual_odometry(self, device_id):
@@ -85,7 +84,6 @@ class PPOTrainerJoint(PPOTrainer):
         self.vo_optimizer = make_optimizer(config.optim, self.vo_model.parameters())
         self.vo_loss_f = make_loss(config.loss)
         self.depth_discretization_on = config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0
-        # self.num_updates_done = 0
         self.vo_updates_counter = 0
 
     def _setup_actor_critic_agent(self, ppo_cfg: Config) -> None:
@@ -323,16 +321,16 @@ class PPOTrainerJoint(PPOTrainer):
 
         # assert len(rollout_intervals) > 0, f'\nDones:\n{dones}\nrollout_boundaries:\n{rollout_boundaries}\nepisode_starts_transposed:\n{episode_starts_transposed}\nrollout_intervals:\n{rollout_intervals}\n'
 
+        vo_metrics = defaultdict(lambda: 0)
         if sum([interv[1] - interv[0] for interv in rollout_intervals]) >= self.vo_batch_size:
             source_frame_indices = []
             for interval in rollout_intervals:
                 source_frame_indices.extend(np.arange(*interval)[:-1])
 
             num_frames_to_sample = (len(source_frame_indices) // self.vo_batch_size) * self.vo_batch_size
-            num_epochs = 2
+            num_epochs = 1
 
             self.vo_model.train()
-            vo_metrics = defaultdict(lambda: 0)
             for e in range(num_epochs):
                 np.random.shuffle(source_frame_indices)
                 for batch_i in range(0, num_frames_to_sample, self.vo_batch_size):
@@ -401,9 +399,11 @@ class PPOTrainerJoint(PPOTrainer):
             if self.vo_updates_counter:
                 for metric_name in vo_metrics:
                     vo_metrics[metric_name] /= self.vo_updates_counter
+
                 self.vo_updates_counter = 0
 
-            return vo_metrics
+        return vo_metrics
+
 
     @profiling_wrapper.RangeContext("train")
     def train(self) -> None:
@@ -535,14 +535,14 @@ class PPOTrainerJoint(PPOTrainer):
                     if self._is_distributed:
                         self.num_rollouts_done_store.add("num_done", 1)
 
-                    # Visual odometry update
-                    vo_metrics = self._train_visual_odometry()
-
                     (
                         value_loss,
                         action_loss,
                         dist_entropy
                     ) = self._update_agent()
+
+                    # Visual odometry update
+                    vo_metrics = self._train_visual_odometry()
 
                     if ppo_cfg.use_linear_lr_decay:
                         lr_scheduler.step()  # type: ignore
@@ -554,9 +554,10 @@ class PPOTrainerJoint(PPOTrainer):
                     )
 
                     self._training_log(writer, losses, prev_time)
-                    if vo_writer:
-                        for k, v in vo_metrics.items():
-                            vo_writer.add_scalar(f'metrics/{k}', v, self.num_updates_done)
+
+                    # write VO metrics to tensorboard
+                    for k, v in vo_metrics.items():
+                        vo_writer.add_scalar(f'metrics/{k}', v, self.num_updates_done)
 
                     # checkpoint model
                     if rank0_only() and self.should_checkpoint():
@@ -567,8 +568,8 @@ class PPOTrainerJoint(PPOTrainer):
                                 wall_time=(time.time() - self.t_start) + prev_time,
                             ),
                         )
+                        torch.save(self.vo_model.state_dict(), f'vo_tb/ckpt_{count_checkpoints}.pt')
                         count_checkpoints += 1
-                        torch.save(self.vo_model.state_dict(), f'vo_tb/ckpt_{self.num_updates_done}.pt')
 
                     profiling_wrapper.range_pop()  # train update
 
