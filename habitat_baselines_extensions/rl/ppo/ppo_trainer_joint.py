@@ -556,7 +556,8 @@ class PPOTrainerJoint(PPOTrainer):
                     self._training_log(writer, losses, prev_time)
 
                     # write VO metrics to tensorboard
-                    self._training_vo_log(vo_writer, vo_metrics)
+                    aggregated_metrics = self._vo_coalesce_post_step(vo_metrics)
+                    self._vo_training_log(vo_writer, aggregated_metrics)
 
                     # checkpoint model
                     if rank0_only() and self.should_checkpoint():
@@ -575,6 +576,22 @@ class PPOTrainerJoint(PPOTrainer):
                 self.envs.close()
 
     @rank0_only
-    def _training_vo_log(self, writer, metrics):
+    def _vo_training_log(self, writer, metrics):
         for k, v in metrics.items():
             writer.add_scalar(f'metrics/{k}', v, self.num_updates_done)
+
+    def _vo_coalesce_post_step(self, metrics):
+        metric_name_ordering = sorted(metrics.keys())
+        stats = torch.tensor(
+            [metrics[k] for k in metric_name_ordering],
+            device="cpu",
+            dtype=torch.float32,
+        )
+        stats = self._all_reduce(stats)
+        stats /= torch.distributed.get_world_size()
+
+        aggregated_metrics = {
+            k: stats[i].item() for i, k in enumerate(metric_name_ordering)
+        }
+
+        return aggregated_metrics
