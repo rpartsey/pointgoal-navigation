@@ -556,8 +556,7 @@ class PPOTrainerJoint(PPOTrainer):
                     self._training_log(writer, losses, prev_time)
 
                     # write VO metrics to tensorboard
-                    for k, v in vo_metrics.items():
-                        vo_writer.add_scalar(f'metrics/{k}', v, self.num_updates_done)
+                    self._training_vo_log(vo_writer, vo_metrics)
 
                     # checkpoint model
                     if rank0_only() and self.should_checkpoint():
@@ -574,3 +573,8 @@ class PPOTrainerJoint(PPOTrainer):
                     profiling_wrapper.range_pop()  # train update
 
                 self.envs.close()
+
+    @rank0_only
+    def _training_vo_log(self, writer, metrics):
+        for k, v in metrics.items():
+            writer.add_scalar(f'metrics/{k}', v, self.num_updates_done)
