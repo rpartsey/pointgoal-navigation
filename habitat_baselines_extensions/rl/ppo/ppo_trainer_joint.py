@@ -568,8 +568,10 @@ class PPOTrainerJoint(PPOTrainer):
                                 wall_time=(time.time() - self.t_start) + prev_time,
                             ),
                         )
-                        torch.save(self.vo_model.state_dict(), f'vo_tb/ckpt_{count_checkpoints}.pt')
                         count_checkpoints += 1
+
+                    if rank0_only() and self.num_updates_done % 100 == 0:
+                        torch.save(self.vo_model.state_dict(), f'vo_tb/ckpt_{self.num_updates_done}.pt')
 
                     profiling_wrapper.range_pop()  # train update
 
