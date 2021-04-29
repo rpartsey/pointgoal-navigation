@@ -7,9 +7,11 @@ import torch
 from habitat.config import Config
 from habitat_baselines.common.baseline_registry import baseline_registry
 
-import habitat_extensions.sensors      # noqa - required to register new sensors to baseline_registry
-import habitat_baselines_extensions.rl # noqa - required to register a joint PPO & VO  and PPOTrainerJoint
+import habitat_extensions.sensors           # noqa - required to register new sensors to baseline_registry
+import habitat_baselines_extensions.rl      # noqa - required to register joint PPO & VO and PPOTrainerJoint
+import habitat_baselines_extensions.common  # noqa - required to register observation transforms
 from habitat_baselines_extensions.config import get_config
+from odometry.config.default import get_config as get_vo_config
 
 
 def main():
@@ -43,6 +45,7 @@ def execute_exp(config: Config, run_type: str) -> None:
     config: Habitat.config
     runtype: str {train or eval}
     """
+    # TODO: check if set_random_seed(config.seed) is more appropriate here
     random.seed(config.TASK_CONFIG.SEED)
     np.random.seed(config.TASK_CONFIG.SEED)
     torch.manual_seed(config.TASK_CONFIG.SEED)
@@ -69,6 +72,11 @@ def run_exp(exp_config: str, run_type: str, opts=None) -> None:
         None.
     """
     config = get_config(exp_config, opts)
+
+    config.defrost()
+    config.VO = get_vo_config(config.VO_CONFIG_PATH, new_keys_allowed=True)
+    config.freeze()
+
     execute_exp(config, run_type)
 
 
