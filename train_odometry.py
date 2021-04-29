@@ -185,6 +185,8 @@ def main():
 
     device = torch.device(config.device)
     model = make_model(config.model).to(device)
+    if hasattr(config.model, 'pretrained_checkpoint') and config.model.pretrained_checkpoint is not None:
+        model.load_state_dict(torch.load(config.model.pretrained_checkpoint, map_location=device))
 
     optimizer = make_optimizer(config.optim, model.parameters())
     scheduler = None
