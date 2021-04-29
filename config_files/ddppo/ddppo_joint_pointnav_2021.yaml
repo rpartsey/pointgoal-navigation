@@ -1,5 +1,6 @@
 VERBOSE: False
 BASE_TASK_CONFIG_PATH: "config_files/challenge_pointnav2021_gt_loc_and_egomotion_sensor.local.rgbd.yaml"
+VO_CONFIG_PATH: "config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.15_poseloss1._1._180x320_embedd_act_hc2021_vo2_joint.yaml"
 TRAINER_NAME: "ddppo-joint"
 ENV_NAME: "NavRLEnv"
 SIMULATOR_GPU_ID: 0

@@ -37,8 +37,6 @@ from habitat_baselines.rl.ddppo.algo.ddp_utils import (
 )
 from habitat_baselines.utils.common import batch_obs
 
-# from .ppo_joint import PPO, DDPPO
-from odometry.config.default import get_config
 from odometry.dataset import make_transforms
 from odometry.models import make_model
 from odometry.losses import make_loss
@@ -61,23 +59,9 @@ class PPOTrainerJoint(PPOTrainer):
         self.depth_discretization_on = None
         self.vo_updates_counter = 0
 
-    def _setup_visual_odometry(self, device_id):
-        # VO model initialization
-        config_path = 'config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.15_poseloss1._1._180x320_embedd_act_hc2021_vo2_joint.yaml'
-        config = get_config(config_path, new_keys_allowed=True)
-
-        # config.defrost()
-        # config.experiment_dir = os.path.join(config.log_dir, config.experiment_name)
-        # config.tb_dir = os.path.join(config.experiment_dir, 'tb')
-        # config.model.best_checkpoint_path = os.path.join(config.experiment_dir, 'best_checkpoint.pt')
-        # config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
-        # config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
-        # config.freeze()
-
-        # init_experiment(config)
-        # set_random_seed(config.seed) TODO: check if the seed can be set here
-
-        self.vo_device = torch.device("cuda", device_id)
+    def _setup_visual_odometry(self):
+        config = self.config.VO
+        self.vo_device = torch.device(config.device)
         self.vo_batch_size = config.train.loader.params.batch_size
         self.vo_model = make_model(config.model).to(self.vo_device)
         self.observations_transforms = make_transforms(config.train.dataset.transforms)
@@ -190,6 +174,7 @@ class PPOTrainerJoint(PPOTrainer):
                 torch.distributed.get_world_size()
                 * self.config.NUM_ENVIRONMENTS
             )
+            self.config.VO.device = local_rank
             self.config.freeze()
 
             random.seed(self.config.TASK_CONFIG.SEED)
@@ -281,7 +266,7 @@ class PPOTrainerJoint(PPOTrainer):
         )
 
         # Visual odometry setup
-        self._setup_visual_odometry(local_rank)
+        self._setup_visual_odometry()
         if self._is_distributed:
             self.vo_model = init_distributed(self.vo_model, self.vo_device, find_unused_params=True)
 
@@ -583,17 +568,18 @@ class PPOTrainerJoint(PPOTrainer):
             writer.add_scalar(f'metrics/{k}', v, self.num_updates_done)
 
     def _vo_coalesce_post_step(self, metrics):
-        metric_name_ordering = sorted(metrics.keys())
-        stats = torch.tensor(
-            [metrics[k] for k in metric_name_ordering],
-            device="cpu",
-            dtype=torch.float32,
-        )
-        stats = self._all_reduce(stats)
-        stats /= torch.distributed.get_world_size()
+        if self._is_distributed:
+            metric_name_ordering = sorted(metrics.keys())
+            stats = torch.tensor(
+                [metrics[k] for k in metric_name_ordering],
+                device="cpu",
+                dtype=torch.float32,
+            )
+            stats = self._all_reduce(stats)
+            stats /= torch.distributed.get_world_size()
 
-        aggregated_metrics = {
-            k: stats[i].item() for i, k in enumerate(metric_name_ordering)
-        }
+            metrics = {
+                k: stats[i].item() for i, k in enumerate(metric_name_ordering)
+            }
 
-        return aggregated_metrics
+        return metrics
