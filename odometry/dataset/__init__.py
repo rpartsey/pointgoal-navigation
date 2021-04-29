@@ -1,4 +1,5 @@
 from torchvision.transforms import Compose
+from torch.utils.data.distributed import DistributedSampler
 
 from . import dataset as dataset_module
 from . import transforms as transforms_module
@@ -48,7 +49,7 @@ def make_dataset(dataset_config):
 
 
 def make_data_loader(loader_config, dataset):
-    sampler = make_sampler(loader_config, dataset)
+    sampler = DistributedSampler(dataset) if hasattr(loader_config, 'is_distributed') else make_sampler(loader_config, dataset)
 
     data_loader_type = getattr(dataset_module, loader_config.type)
     loader = data_loader_type.from_config(
