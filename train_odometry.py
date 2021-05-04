@@ -87,6 +87,7 @@ def coalesce_post_step(metrics, device):
 def train(model, optimizer, train_loader, loss_f, metric_fns, device, disable_tqdm=False):
     model.train()
 
+    num_items = 0
     metrics = defaultdict(lambda: 0)
 
     for data in tqdm(train_loader, disable=disable_tqdm):
@@ -109,10 +110,10 @@ def train(model, optimizer, train_loader, loss_f, metric_fns, device, disable_tq
             metrics[loss_component] += value.item() * batch_size
         for metric_f in metric_fns:
             metrics[metric_f.__name__] += metric_f(output, target).item() * batch_size
+        num_items += batch_size
 
-    dataset_length = len(train_loader.dataset)
     for metric_name in metrics:
-        metrics[metric_name] /= dataset_length
+        metrics[metric_name] /= num_items
 
     return metrics
 
@@ -120,6 +121,7 @@ def train(model, optimizer, train_loader, loss_f, metric_fns, device, disable_tq
 def val(model, val_loader, loss_f, metric_fns, device, disable_tqdm=False):
     model.eval()
 
+    num_items = 0
     metrics = defaultdict(lambda: 0)
 
     with torch.no_grad():
@@ -139,10 +141,10 @@ def val(model, val_loader, loss_f, metric_fns, device, disable_tqdm=False):
                 metrics[loss_component] += value.item() * batch_size
             for metric_f in metric_fns:
                 metrics[metric_f.__name__] += metric_f(output, target).item() * batch_size
+            num_items += batch_size
 
-    dataset_length = len(val_loader.dataset)
     for metric_name in metrics:
-        metrics[metric_name] /= dataset_length
+        metrics[metric_name] /= num_items
 
     return metrics
 
