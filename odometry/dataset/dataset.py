@@ -35,7 +35,8 @@ class EgoMotionDataset(Dataset):
             augmentations=None,
             not_use_turn_left=False,
             not_use_turn_right=False,
-            not_use_move_forward=False
+            not_use_move_forward=False,
+            invert_collisions=False
     ):
         super().__init__()
         self.data_root = data_root
@@ -47,6 +48,7 @@ class EgoMotionDataset(Dataset):
         self.not_use_turn_right = not_use_turn_right
         self.not_use_move_forward = not_use_move_forward
         self.jsons = self._load_jsons()
+        self.invert_collisions = invert_collisions
         if invert_rotations:
             self._add_inverse_rotations()
         self.num_dataset_points = num_points or len(self.jsons)
@@ -86,6 +88,8 @@ class EgoMotionDataset(Dataset):
             new_jsons.append(item)
             action = item['action'][0]
             if action in self.ROTATION_ACTIONS:
+                if item['collision'] and (not self.invert_collisions):
+                    continue
                 inv = copy.deepcopy(item)
                 inv['action'][0] = self.INVERSE_ACTION[action]
                 inv = self._swap_values(inv, 'source_frame_path', 'target_frame_path')
@@ -146,7 +150,8 @@ class EgoMotionDataset(Dataset):
             augmentations=augmentations,
             not_use_turn_left=dataset_params.not_use_turn_left,
             not_use_turn_right=dataset_params.not_use_turn_right,
-            not_use_move_forward=dataset_params.not_use_move_forward
+            not_use_move_forward=dataset_params.not_use_move_forward,
+            invert_collisions=dataset_params.invert_collisions
         )
 
 

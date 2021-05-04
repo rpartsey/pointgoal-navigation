@@ -176,6 +176,11 @@ def parse_args():
         help='indicates whether to invert rotation actions'
     )
     parser.add_argument(
+        '--invert-collisions',
+        action='store_true',
+        help='indicates whether to invert rotation actions when the agent has collided with something'
+    )
+    parser.add_argument(
         '--not-use-turn-left',
         action='store_true',
     )
@@ -207,12 +212,14 @@ def main():
 
     config.train.dataset.params.num_points = args.num_dataset_items
     config.train.dataset.params.invert_rotations = args.invert_rotations_train
+    config.train.dataset.params.invert_collisions = args.invert_collisions
     config.train.dataset.params.not_use_turn_left = args.not_use_turn_left
     config.train.dataset.params.not_use_turn_right = args.not_use_turn_right
     config.train.dataset.params.not_use_move_forward = args.not_use_move_forward
 
     config.val.dataset.params.num_points = args.num_dataset_items
     config.val.dataset.params.invert_rotations = args.invert_rotations_val
+    config.val.dataset.params.invert_collisions = args.invert_collisions
     config.val.dataset.params.not_use_turn_left = args.not_use_turn_left
     config.val.dataset.params.not_use_turn_right = args.not_use_turn_right
     config.val.dataset.params.not_use_move_forward = args.not_use_move_forward
@@ -220,6 +227,7 @@ def main():
     if hasattr(config, 'train_val'):
         config.train_val.dataset.params.num_points = args.num_dataset_items
         config.train_val.dataset.params.invert_rotations = args.invert_rotations_val
+        config.train_val.dataset.params.invert_collisions = args.invert_collisions
         config.train_val.dataset.params.not_use_turn_left = args.not_use_turn_left
         config.train_val.dataset.params.not_use_turn_right = args.not_use_turn_right
         config.train_val.dataset.params.not_use_move_forward = args.not_use_move_forward
