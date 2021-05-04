@@ -175,6 +175,18 @@ def parse_args():
         action='store_true',
         help='indicates whether to invert rotation actions'
     )
+    parser.add_argument(
+        '--not-use-turn-left',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--not-use-turn_right',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--not-use-move-forward',
+        action='store_true',
+    )
     args = parser.parse_args()
 
     return args
@@ -192,10 +204,25 @@ def main():
     config.model.best_checkpoint_path = os.path.join(config.experiment_dir, 'best_checkpoint.pt')
     config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
+
     config.train.dataset.params.num_points = args.num_dataset_items
     config.train.dataset.params.invert_rotations = args.invert_rotations_train
+    config.train.dataset.params.not_use_turn_left = args.not_use_turn_left
+    config.train.dataset.params.not_use_turn_right = args.not_use_turn_right
+    config.train.dataset.params.not_use_move_forward = args.not_use_move_forward
+
     config.val.dataset.params.num_points = args.num_dataset_items
     config.val.dataset.params.invert_rotations = args.invert_rotations_val
+    config.val.dataset.params.not_use_turn_left = args.not_use_turn_left
+    config.val.dataset.params.not_use_turn_right = args.not_use_turn_right
+    config.val.dataset.params.not_use_move_forward = args.not_use_move_forward
+
+    if hasattr(config, 'train_val'):
+        config.train_val.dataset.params.num_points = args.num_dataset_items
+        config.train_val.dataset.params.invert_rotations = args.invert_rotations_val
+        config.train_val.dataset.params.not_use_turn_left = args.not_use_turn_left
+        config.train_val.dataset.params.not_use_turn_right = args.not_use_turn_right
+        config.train_val.dataset.params.not_use_move_forward = args.not_use_move_forward
     config.freeze()
 
     # init distributed if run with torch.distributed.launch
