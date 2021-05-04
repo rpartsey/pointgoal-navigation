@@ -2,6 +2,7 @@ import os
 import shutil
 import argparse
 from collections import defaultdict
+from datetime import datetime
 
 from habitat_baselines.rl.ddppo.algo.ddp_utils import get_distrib_size, init_distrib_slurm, rank0_only
 from tqdm import tqdm
@@ -207,6 +208,7 @@ def main():
         config.defrost()
         config.device = local_rank
         config.train.loader.is_distributed = True
+        config.val.loader.is_distributed = True
         config.freeze()
 
     init_experiment(config)
@@ -249,7 +251,7 @@ def main():
 
     for epoch in range(1, config.epochs + 1):
         if rank0_only():
-            print(f'Epoch {epoch}')
+            print(f'{datetime.now()} Epoch {epoch}')
 
         train_metrics = train(model, optimizer, train_loader, loss_f, train_metric_fns, device, is_distributed)
         if is_distributed:
