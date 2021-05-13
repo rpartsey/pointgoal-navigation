@@ -1,4 +1,5 @@
 from . import metrics as metrics_module
+from .metrics import action_id_to_action_name
 
 
 def make_metrics(metrics_config):

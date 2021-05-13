@@ -16,7 +16,7 @@ from odometry.models import make_model
 from odometry.dataset import make_dataset, make_data_loader
 from odometry.losses import make_loss
 from odometry.optims import make_optimizer
-from odometry.metrics import make_metrics
+from odometry.metrics import make_metrics, action_id_to_action_name
 from odometry.utils import set_random_seed, transform_batch
 
 
@@ -85,10 +85,12 @@ def coalesce_post_step(metrics, device):
     }
 
 
-def train(model, optimizer, train_loader, loss_f, metric_fns, device, disable_tqdm=False):
+def train(model, optimizer, train_loader, loss_f, metric_fns, device, disable_tqdm=False, compute_metrics_per_action=True):
     model.train()
 
     num_items = 0
+    num_items_per_action = defaultdict(lambda: 0)
+
     metrics = defaultdict(lambda: 0)
 
     for data in tqdm(train_loader, disable=disable_tqdm):
@@ -111,18 +113,30 @@ def train(model, optimizer, train_loader, loss_f, metric_fns, device, disable_tq
             metrics[loss_component] += value.item() * batch_size
         for metric_f in metric_fns:
             metrics[metric_f.__name__] += metric_f(output, target).item() * batch_size
+            if compute_metrics_per_action:
+                for action_id in embeddings['action'].unique():
+                    action_name = action_id_to_action_name[action_id.item()]
+                    action_mask = embeddings['action'] == action_id
+                    action_metric_name = f'{metric_f.__name__}_{action_name}'
+                    num_action_items = action_mask.sum()
+
+                    metrics[action_metric_name] += metric_f(output[action_mask], target[action_mask]).item() * num_action_items
+                    num_items_per_action[action_metric_name] += num_action_items
+
         num_items += batch_size
 
     for metric_name in metrics:
-        metrics[metric_name] /= num_items
+        metrics[metric_name] /= num_items_per_action.get(metric_name, num_items)
 
     return metrics
 
 
-def val(model, val_loader, loss_f, metric_fns, device, disable_tqdm=False):
+def val(model, val_loader, loss_f, metric_fns, device, disable_tqdm=False, compute_metrics_per_action=True):
     model.eval()
 
     num_items = 0
+    num_items_per_action = defaultdict(lambda: 0)
+
     metrics = defaultdict(lambda: 0)
 
     with torch.no_grad():
@@ -142,10 +156,20 @@ def val(model, val_loader, loss_f, metric_fns, device, disable_tqdm=False):
                 metrics[loss_component] += value.item() * batch_size
             for metric_f in metric_fns:
                 metrics[metric_f.__name__] += metric_f(output, target).item() * batch_size
+                if compute_metrics_per_action:
+                    for action_id in embeddings['action'].unique():
+                        action_name = action_id_to_action_name[action_id.item()]
+                        action_mask = embeddings['action'] == action_id
+                        action_metric_name = f'{metric_f.__name__}_{action_name}'
+                        num_action_items = action_mask.sum()
+
+                        metrics[action_metric_name] += metric_f(output[action_mask], target[action_mask]).item() * num_action_items
+                        num_items_per_action[action_metric_name] += num_action_items
+
             num_items += batch_size
 
-    for metric_name in metrics:
-        metrics[metric_name] /= num_items
+        for metric_name in metrics:
+            metrics[metric_name] /= num_items_per_action.get(metric_name, num_items)
 
     return metrics
 
@@ -288,20 +312,20 @@ def main():
         if rank0_only():
             print(f'{datetime.now()} Epoch {epoch}')
 
-        train_metrics = train(model, optimizer, train_loader, loss_f, train_metric_fns, device, is_distributed)
+        train_metrics = train(model, optimizer, train_loader, loss_f, train_metric_fns, device, is_distributed, config.compute_metrics_per_action)
         if is_distributed:
             train_metrics = coalesce_post_step(train_metrics, device)
         write_metrics(epoch, train_metrics, train_writer)
         print_metrics('Train', train_metrics)
 
-        val_metrics = val(model, val_loader, loss_f, val_metric_fns, device, is_distributed)
+        val_metrics = val(model, val_loader, loss_f, val_metric_fns, device, is_distributed, config.compute_metrics_per_action)
         if is_distributed:
             val_metrics = coalesce_post_step(val_metrics, device)
         write_metrics(epoch, val_metrics, val_writer)
         print_metrics('Val', val_metrics)
 
         if hasattr(config, 'train_val'):
-            train_val_metrics = val(model, train_val_loader, loss_f, train_val_metric_fns, device, is_distributed)
+            train_val_metrics = val(model, train_val_loader, loss_f, train_val_metric_fns, device, is_distributed, config.compute_metrics_per_action)
             if is_distributed:
                 val_metrics = coalesce_post_step(val_metrics, device)
             write_metrics(epoch, train_val_metrics, train_val_writer)
