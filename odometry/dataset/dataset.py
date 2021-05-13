@@ -9,6 +9,9 @@ from odometry.dataset.utils import get_relative_egomotion
 
 
 class EgoMotionDataset(Dataset):
+    TURN_LEFT = 'TURN_LEFT'
+    TURN_RIGHT = 'TURN_RIGHT'
+    MOVE_FORWARD = 'MOVE_FORWARD'
     ROTATION_ACTIONS = ['TURN_LEFT', 'TURN_RIGHT']
     INVERSE_ACTION = {
         'TURN_LEFT': 'TURN_RIGHT',
@@ -29,7 +32,11 @@ class EgoMotionDataset(Dataset):
             transforms,
             num_points=None,
             invert_rotations=False,
-            augmentations=None
+            augmentations=None,
+            not_use_turn_left=False,
+            not_use_turn_right=False,
+            not_use_move_forward=False,
+            invert_collisions=False
     ):
         super().__init__()
         self.data_root = data_root
@@ -37,7 +44,11 @@ class EgoMotionDataset(Dataset):
         self.split = split
         self.transforms = transforms
         self.augmentations = augmentations
+        self.not_use_turn_left = not_use_turn_left
+        self.not_use_turn_right = not_use_turn_right
+        self.not_use_move_forward = not_use_move_forward
         self.jsons = self._load_jsons()
+        self.invert_collisions = invert_collisions
         if invert_rotations:
             self._add_inverse_rotations()
         self.num_dataset_points = num_points or len(self.jsons)
@@ -50,7 +61,24 @@ class EgoMotionDataset(Dataset):
             with open(file_path, 'r') as file:
                 scene_content = json.load(file)
 
-            data += scene_content['dataset']
+            scene_dataset = scene_content['dataset']
+            if self.not_use_turn_left:
+                scene_dataset = [
+                    frames for frames in scene_dataset
+                    if frames['action'][0] != self.TURN_LEFT
+                ]
+            if self.not_use_turn_right:
+                scene_dataset = [
+                    frames for frames in scene_dataset
+                    if frames['action'][0] != self.TURN_RIGHT
+                ]
+            if self.not_use_move_forward:
+                scene_dataset = [
+                    frames for frames in scene_dataset
+                    if frames['action'][0] != self.MOVE_FORWARD
+                ]
+
+            data += scene_dataset
 
         return data
 
@@ -60,6 +88,8 @@ class EgoMotionDataset(Dataset):
             new_jsons.append(item)
             action = item['action'][0]
             if action in self.ROTATION_ACTIONS:
+                if item['collision'] and (not self.invert_collisions):
+                    continue
                 inv = copy.deepcopy(item)
                 inv['action'][0] = self.INVERSE_ACTION[action]
                 inv = self._swap_values(inv, 'source_frame_path', 'target_frame_path')
@@ -117,7 +147,11 @@ class EgoMotionDataset(Dataset):
             transforms=transforms,
             num_points=dataset_params.num_points,
             invert_rotations=dataset_params.invert_rotations,
-            augmentations=augmentations
+            augmentations=augmentations,
+            not_use_turn_left=dataset_params.not_use_turn_left,
+            not_use_turn_right=dataset_params.not_use_turn_right,
+            not_use_move_forward=dataset_params.not_use_move_forward,
+            invert_collisions=dataset_params.invert_collisions
         )
 
 

@@ -1,5 +1,11 @@
 import torch
 
+action_id_to_action_name = {
+    0: 'move_forward',
+    1: 'turn_left',
+    2: 'turn_right'
+}
+
 
 def translation_mae(pr_pose, gt_pose):
     batch_size = gt_pose.shape[0]
