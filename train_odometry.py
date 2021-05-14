@@ -22,16 +22,13 @@ from odometry.utils import set_random_seed, transform_batch
 
 @rank0_only
 def print_metrics(phase, metrics):
-    loss = metrics.pop('loss')
 
-    loss_log_str = '{:6}loss: {:.6f}'.format(phase, loss)
-    other_metrics_log_str = ' '.join([
-        '{}: {:.6f}'.format(k, v)
+    metrics_log_str = ' '.join([
+        '\t{}: {:.6f}\n'.format(k, v)
         for k, v in metrics.items()
     ])
 
-    metrics['loss'] = loss
-    print(f'{loss_log_str} {other_metrics_log_str}')
+    print(f'{phase}:\n {metrics_log_str}')
 
 
 @rank0_only
