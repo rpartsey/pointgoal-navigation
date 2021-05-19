@@ -1,6 +1,6 @@
 import argparse
 import os
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -71,6 +71,23 @@ def parse_args():
         type=int,
         help='random seed'
     )
+    parser.add_argument(
+        '--invert-collisions',
+        action='store_true',
+        help='indicates whether to invert rotation actions when the agent has collided with something'
+    )
+    parser.add_argument(
+        '--not-use-turn-left',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--not-use-turn_right',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--not-use-move-forward',
+        action='store_true',
+    )
     args = parser.parse_args()
 
     return args
@@ -115,6 +132,10 @@ def evaluate_checkpoint(args, config):
     for checkpoint_name in checkpoint_names:
         checkpoint_path = os.path.join(experiment_dir, checkpoint_name)
         checkpoint = torch.load(checkpoint_path, map_location=device)
+        new_checkpoint = OrderedDict()
+        for k, v in checkpoint.items():
+            new_checkpoint[k.replace('module.', '')] = v
+        checkpoint = new_checkpoint
         model.load_state_dict(checkpoint)
         model.eval()
 
@@ -163,6 +184,10 @@ def main():
     config.val.dataset.params.num_points = None
     config.val.loader.params.batch_size = args.batch_size
     config.val.loader.params.num_workers = args.num_workers
+    config.val.dataset.params.invert_collisions = args.invert_collisions
+    config.val.dataset.params.not_use_turn_left = args.not_use_turn_left
+    config.val.dataset.params.not_use_turn_right = args.not_use_turn_right
+    config.val.dataset.params.not_use_move_forward = args.not_use_move_forward
     config.freeze()
 
     evaluate_checkpoint(args, config)
