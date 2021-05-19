@@ -9,6 +9,7 @@ import argparse
 import copy
 import os
 import random
+from collections import OrderedDict
 from typing import Dict, Optional
 
 import quaternion
@@ -378,6 +379,11 @@ def main():
         obs_transforms = make_transforms(vo_config.val.dataset.transforms)
         vo_model = make_model(vo_config.model).to(device)
         checkpoint = torch.load(args.vo_checkpoint_path, map_location=device)
+        # if config.distrib_backend:
+        new_checkpoint = OrderedDict()
+        for k, v in checkpoint.items():
+            new_checkpoint[k.replace('module.', '')] = v
+        checkpoint = new_checkpoint
         vo_model.load_state_dict(checkpoint)
         vo_model.eval()
 
