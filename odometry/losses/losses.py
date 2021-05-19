@@ -29,7 +29,14 @@ class PoseLoss(nn.Module):
         return pose_loss, meta
 
 
-class PoseLossV2(PoseLoss):
+class PoseLossV2(nn.Module):
+    def __init__(self, alpha=1., beta=1.):
+        super().__init__()
+        self.alpha = alpha
+        self.beta = beta
+        self.mse_trans = nn.MSELoss(reduction='sum')
+        self.mse_rot = nn.MSELoss(reduction='sum')
+
     def forward(self, pred_pose, true_pose):
         batch_size = true_pose.shape[0]
 
@@ -38,8 +45,8 @@ class PoseLossV2(PoseLoss):
         pred_location = pred_pose[:, :-1]
         pred_orientation = pred_pose[:, -1]
 
-        location_loss = self.mse(pred_location, true_location) / batch_size
-        orientation_loss = self.mse(pred_orientation, true_orientation) / batch_size
+        location_loss = self.mse_trans(pred_location, true_location) / batch_size
+        orientation_loss = self.mse_rot(pred_orientation, true_orientation) / batch_size
 
         pose_loss = self.alpha * location_loss + self.beta * orientation_loss
         meta = {

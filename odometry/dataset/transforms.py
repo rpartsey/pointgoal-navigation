@@ -145,3 +145,56 @@ class Resize:
             k: self.resize(v) if 'rgb' in k or 'depth' in k else v
             for k, v in data.items()
         }
+
+
+class Crop:
+    MOVE_FORWARD = 1
+    TURN_LEFT = 2
+    TURN_RIGHT = 3
+
+    def __init__(
+            self,
+            source_trans_keys=(
+                    'source_rgb',
+                    'source_depth',
+                    'source_depth_discretized',
+            ),
+            target_trans_keys=(
+                    'target_rgb',
+                    'target_depth',
+                    'target_depth_discretized'
+            )
+    ):
+        self.source_trans_keys = source_trans_keys
+        self.target_trans_keys = target_trans_keys
+        self.crop_h = 320
+        self.crop_w = 450
+        self.padding = 20
+        self.in_h = 360
+        self.in_w = 640
+
+    def __call__(self, data):
+        action = data['action'].item() + 1
+        if action == self.TURN_LEFT:
+            source_i = self.padding
+            source_j = self.padding
+            target_i = self.padding
+            target_j = self.in_w - self.padding - self.crop_w
+        elif action == self.TURN_RIGHT:
+            source_i = self.padding
+            source_j = self.in_w - self.padding - self.crop_w
+            target_i = self.padding
+            target_j = self.padding
+        else:
+            source_i = self.in_h // 2 - self.crop_h // 2
+            source_j = self.in_w // 2 - self.crop_w // 2
+            target_i = source_i
+            target_j = source_j
+
+        for k, v in data.items():
+            if k in self.source_trans_keys:
+                data[k] = v[source_i:source_i+self.crop_h, source_j:source_j + self.crop_w, :]
+            if k in self.target_trans_keys:
+                data[k] = v[target_i:target_i + self.crop_h, target_j:target_j + self.crop_w, :]
+
+        return data
