@@ -46,7 +46,7 @@ train:
     type: EgoDataLoader
     params:
       batch_size: 16
-      num_workers: 10
+      num_workers: 16
       shuffle: False
       sampler: null
   metrics:
@@ -87,7 +87,7 @@ val:
     type: EgoDataLoader
     params:
       batch_size: 16
-      num_workers: 8
+      num_workers: 16
       shuffle: False
       sampler: null
   metrics:
