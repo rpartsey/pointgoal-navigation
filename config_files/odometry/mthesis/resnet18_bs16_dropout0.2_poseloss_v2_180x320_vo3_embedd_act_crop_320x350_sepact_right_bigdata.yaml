@@ -35,7 +35,7 @@ train:
   dataset:
     type: EgoMotionDataset
     params:
-      data_root: /home/rpartsey/data/habitat/vo_datasets/noisy_plus_noisy_big/
+      data_root: /home/rpartsey/data/habitat/vo_datasets/noisy_plus_noisy_big
       environment_dataset: gibson
       split: train  # train_train
       invert_rotations: False
@@ -46,7 +46,7 @@ train:
     type: EgoDataLoader
     params:
       batch_size: 16
-      num_workers: 8
+      num_workers: 10
       shuffle: False
       sampler: null
   metrics:
