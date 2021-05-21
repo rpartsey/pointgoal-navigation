@@ -147,11 +147,16 @@ args = parser.parse_args()
 
 vo_dataset_path = args.dataset_path
 scene_dataset = load_jsons(vo_dataset_path)
+scene_dataset_collisions = [item for item in scene_dataset if item['collision']]
+scene_dataset_no_collisions = [item for item in scene_dataset if not item['collision']]
 
 print('Dataset length:', len(scene_dataset))
 print('Actions distribution:')
 get_actions_distribution(scene_dataset)
 print('Number of collisions:', sum([item['collision'] for item in scene_dataset]))
-
+print('Actions distribution (with collisions):')
+get_actions_distribution(scene_dataset_collisions)
+print('Actions distribution (without collisions):')
+get_actions_distribution(scene_dataset_no_collisions)
 
 
