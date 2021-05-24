@@ -391,7 +391,8 @@ def main():
             obs_transforms=obs_transforms,
             vo_model=vo_model,
             action_embedding_on=vo_config.model.params.action_embedding_size > 0,
-            depth_discretization_on=vo_config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0,
+            depth_discretization_on=(hasattr(vo_config.val.dataset.transforms, 'DiscretizeDepth')
+                                     and vo_config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0),
             rotation_regularization_on=args.rotation_regularization_on,
             device=device
         )
