@@ -1,20 +1,29 @@
+import copy
+import multiprocessing
 import os
 import json
 import random
 import argparse
 import subprocess
+from pprint import pprint
 
 import quaternion
 import numpy as np
 from PIL import Image
-from tqdm import tqdm
+from tqdm.auto import tqdm, trange
 from collections import defaultdict
 from itertools import groupby
 
-from environment import build_env
 from agent import DDPPOAgent, ShortestPathFollowerAgent
 from habitat_baselines.config.default import get_config
+from habitat_baselines.common.baseline_registry import baseline_registry
+from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 
+from environment.build_env import get_gibson_scenes
+
+# Disable logging to prevent tqdm progressbar corruption
+import logging
+logging.disable(logging.CRITICAL)
 
 ACTION_MAP = {
     0: "STOP",
@@ -79,7 +88,7 @@ def parse_args():
         help="path to the gibson_quality_ratings.csv",
     )
     parser.add_argument(
-        "--num-episode-sample",
+        "--num-episodes-per-scene",
         required=True,
         type=int,
         help="number of episodes to sample",
@@ -106,15 +115,17 @@ def parse_args():
         help="the window size from within which sample source/target for generalized dset",
     )
     parser.add_argument(
-        "--sim-gpu-id",
+        "--gpu-ids",
         type=int,
-        default=0,
-        help="gpu id on which scenes are loaded",
+        default=[0],
+        nargs='+',
+        help="gpu ids on which scenes are loaded",
     )
     parser.add_argument(
-        "--torch-gpu-id",
+        "--num-processes-per-gpu",
         type=int,
-        default=0,
+        default=1,
+        help="number of workers to run per GPU",
     )
     parser.add_argument(
         "--seed",
@@ -144,6 +155,9 @@ def create_folders_for_scene(args, scene_name):
     if os.path.isdir(dir):
         return
     else:
+        # os.makedirs(os.path.join(dir, "rgb"), exist_ok=True)
+        # os.makedirs(os.path.join(dir, "depth"), exist_ok=True)
+
         mkdir_scene_cmd = "mkdir -p {}".format(dir)
         subprocess.check_output(mkdir_scene_cmd, shell=True)
 
@@ -217,30 +231,18 @@ def get_depth_map_paths(
     )
 
 
-if __name__ == '__main__':
-    
-    args = parse_args()
-    args.data_dir = os.path.join(args.data_dir, args.dataset)
+def build_env(config):
+    dataset = PointNavDatasetV1(config.TASK_CONFIG.DATASET)
+    env_type = baseline_registry.get_env(config.ENV_NAME)
+    env = env_type(config, dataset)
+    env.seed(config.RANDOM_SEED)
 
-    random.seed(args.seed)
-    np.random.seed(args.seed)
+    return env
 
-    config = get_config(
-        args.config_file, ["BASE_TASK_CONFIG_PATH", args.base_task_config_file]
-    )
-    # override config values with command line arguments:
-    config.defrost()
-    config.INPUT_TYPE = 'rgbd'
-    config.MODEL_PATH = args.model_path
-    config.TORCH_GPU_ID = args.torch_gpu_id
-    config.RANDOM_SEED = args.seed
-    config.TASK_CONFIG.DATASET.SPLIT = args.split
-    config.TASK_CONFIG.DATASET.SINGLE_SCENE_TEST = args.single_scene_test
-    config.TASK_CONFIG.DATASET.GIBSON_VOTES_CSV = args.gibson_votes_csv
-    config.TASK_CONFIG.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = args.sim_gpu_id
-    config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
-    config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.NUM_EPISODE_SAMPLE = args.num_episode_sample
-    config.freeze()
+
+def collect_scene_dataset(params):
+    args, config = params
+    scene_name = config.TASK_CONFIG.DATASET.CONTENT_SCENES[0]
 
     env = build_env(config)
     agent = DDPPOAgent(config) if args.agent_type == 'ddppo' else ShortestPathFollowerAgent(
@@ -255,8 +257,10 @@ if __name__ == '__main__':
     }
 
     scene_name_to_dataset_map = defaultdict(list)
-    for i in tqdm(range(len(nav_episodes))):
-
+    for i in trange(
+            len(nav_episodes),
+            desc=scene_name.ljust(20)
+    ):
         # 0. reset env + agent before start of episode
         observation = env.reset()
         agent.reset()
@@ -309,14 +313,14 @@ if __name__ == '__main__':
             n_pts_to_sample = int(np.ceil(args.max_pts_per_scene / n_episodes_for_this_scene))
 
         # 6. sample data points from within this episode
-        idxs = list(range(n_episode_steps-1))  # subtract 1 to not sample last index
+        idxs = list(range(n_episode_steps - 1))  # subtract 1 to not sample last index
         random.shuffle(idxs)
         sample_idxs = idxs[:n_pts_to_sample]
 
         # 7. for each data point, create a dataset entry
         data_pts_for_curr_episode = []
         for idx in sample_idxs:
-            window_size = np.random.randint(1, args.window_size+1)
+            window_size = np.random.randint(1, args.window_size + 1)
             if (idx + window_size) >= n_episode_steps:
                 window_size = (n_episode_steps - idx - 1)
             data = {
@@ -332,18 +336,18 @@ if __name__ == '__main__':
 
             frame_s, frame_t = (
                 buffer["observations"][idx]["rgb"],
-                buffer["observations"][idx+window_size]["rgb"],
+                buffer["observations"][idx + window_size]["rgb"],
             )
             depth_s, depth_t = (
                 buffer["observations"][idx]["depth"],
-                buffer["observations"][idx+window_size]["depth"],
+                buffer["observations"][idx + window_size]["depth"],
             )
             state_s, state_t = (
                 buffer["sim_states"][idx],
-                buffer["sim_states"][idx+window_size],
+                buffer["sim_states"][idx + window_size],
             )
 
-            actions = buffer["actions"][idx:(idx+window_size)]
+            actions = buffer["actions"][idx:(idx + window_size)]
             data["action"] = [ACTION_MAP[action] for action in actions]
 
             (
@@ -392,6 +396,7 @@ if __name__ == '__main__':
             data_pts_for_curr_episode.append(data)
 
         scene_name_to_dataset_map[scene_name] += data_pts_for_curr_episode
+            # pbar.update()
     env.close()
 
     # 8. write all scene jsons to disk
@@ -404,3 +409,59 @@ if __name__ == '__main__':
         json_data = {"dataset": dataset}
         with open(scene_json_path, "w") as f:
             json.dump(json_data, f)
+
+    return scene_name, len(scene_name_to_dataset_map[scene_name])
+
+
+if __name__ == '__main__':
+    
+    args = parse_args()
+    args.data_dir = os.path.join(args.data_dir, args.dataset)
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+
+    config = get_config(
+        args.config_file, ["BASE_TASK_CONFIG_PATH", args.base_task_config_file]
+    )
+    # override config values with command line arguments:
+    config.defrost()
+    config.INPUT_TYPE = 'rgbd'
+    config.MODEL_PATH = args.model_path
+    config.RANDOM_SEED = args.seed
+    config.TASK_CONFIG.DATASET.SPLIT = args.split
+    config.TASK_CONFIG.DATASET.SINGLE_SCENE_TEST = args.single_scene_test
+    config.TASK_CONFIG.DATASET.GIBSON_VOTES_CSV = args.gibson_votes_csv
+    config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
+    config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.NUM_EPISODE_SAMPLE = args.num_episodes_per_scene
+    config.freeze()
+
+    mp_ctx = multiprocessing.get_context("fork")
+    NUM_GPUS = len(args.gpu_ids)
+    NUM_PROCESSES_PER_GPU = args.num_processes_per_gpu
+    NUM_WORKERS = NUM_GPUS * NUM_PROCESSES_PER_GPU
+
+    scene_names = [scene_name for scene_name, _ in get_gibson_scenes(config.TASK_CONFIG)]
+    params = [(copy.deepcopy(args), copy.deepcopy(config)) for _ in range(len(scene_names))]
+
+    for i, ((_, worker_config), scene_name) in enumerate(zip(params, scene_names)):
+        gpu_id = args.gpu_ids[i % NUM_GPUS] if NUM_GPUS > 1 else args.gpu_ids[0]
+
+        worker_config.defrost()
+        worker_config.TASK_CONFIG.DATASET.CONTENT_SCENES = [scene_name]
+        worker_config.TORCH_GPU_ID = gpu_id
+        worker_config.TASK_CONFIG.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
+        worker_config.freeze()
+
+    with mp_ctx.Pool(
+            NUM_WORKERS,
+            initializer=tqdm.set_lock,
+            initargs=(tqdm.get_lock(),),
+            maxtasksperchild=1
+    ) as pool:
+        stats = {}
+        with tqdm(total=len(params), desc='Overall progress'.ljust(20)) as pbar:
+            for scene_name, num_obs_pairs in pool.imap_unordered(collect_scene_dataset, params):
+                stats[scene_name] = num_obs_pairs
+                pbar.update()
+        pprint(stats)

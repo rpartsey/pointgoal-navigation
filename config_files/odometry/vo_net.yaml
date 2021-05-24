@@ -3,6 +3,7 @@ log_dir: ./experiments
 epochs: 30
 device: cuda:0
 seed: 1
+distrib_backend: NCCL
 
 transforms:
   DiscretizeDepth:
