@@ -46,7 +46,7 @@ def init_experiment(config):
 
         answer = ask()
         while answer not in ('y', 'n'):
-            answer = ask()
+            answer = 'y'# ask()
 
         delete = answer == 'y'
         if not delete:
