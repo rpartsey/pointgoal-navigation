@@ -1,4 +1,4 @@
-experiment_name: resnet18_bs16_dropout0.2_poseloss_v2_180x320_vo3_embedd_act_vflip_invert_rot_bigdata
+experiment_name: resnet18_bs16_dropout0.2_poseloss_v2_180x320_vo3_embedd_act_vflip_bigdata
 log_dir: ../experiments/mthesis
 epochs: 50
 device: cuda:0
@@ -43,7 +43,7 @@ train:
     type: EgoDataLoader
     params:
       batch_size: 16
-      num_workers: 20
+      num_workers: 24
       shuffle: False
       sampler: null
   metrics:
@@ -84,7 +84,7 @@ val:
     type: EgoDataLoader
     params:
       batch_size: 16
-      num_workers: 20
+      num_workers: 24
       shuffle: False
       sampler: null
   metrics:

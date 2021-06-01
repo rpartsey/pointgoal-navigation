@@ -1,4 +1,4 @@
-experiment_name: resnet18_bs16_dropout0.2_poseloss_v2_180x320_vo3_embedd_act_vflip_invert_rot_bigdata
+experiment_name: resnet18_bs16_dropout0.2_poseloss_v2_180x320_vo3_ddepth_max0.5_embedd_act
 log_dir: ../experiments/mthesis
 epochs: 50
 device: cuda:0
@@ -10,12 +10,12 @@ transforms:
   ConvertToTensor:
     rank: 1
     params: null
-#  DiscretizeDepth:
-#    rank: 2
-#    params:
-#      n_channels: 5
-#      min_depth: 0
-#      max_depth: 0.5
+  DiscretizeDepth:
+    rank: 2
+    params:
+      n_channels: 5
+      min_depth: 0
+      max_depth: 0.5
   PermuteChannels:
     rank: 3
     params: null
@@ -32,13 +32,13 @@ train:
   dataset:
     type: EgoMotionDataset
     params:
-      data_root: /home/rpartsey/data/habitat/vo_datasets/noisy_plus_noisy_big
+      data_root: /home/rpartsey/data/habitat/vo_datasets/noisy
       environment_dataset: gibson
       split: train  # train_train
       invert_rotations: False
-    augmentations:
-      VFlip:
-        params: null
+    augmentations: null
+#      VFlip:
+#        params: null
   loader:
     type: EgoDataLoader
     params:
@@ -100,7 +100,7 @@ model:
       params:
         depth: 5
         weights: null
-        in_channels: 8
+        in_channels: 18
         in_height: 180
         in_width: 320
         base_planes: 32
