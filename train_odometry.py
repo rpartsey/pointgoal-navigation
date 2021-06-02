@@ -329,7 +329,7 @@ def main():
             print_metrics('Train-val', train_val_metrics)
 
         early_stopping(val_metrics['loss'])
-        if rank0_only() and config.model.save and early_stopping.counter == 0:
+        if rank0_only() and config.model.save:  # and early_stopping.counter == 0:
             best_checkpoint_path = config.model.best_checkpoint_path.replace('.pt', f'_{str(epoch).zfill(3)}e.pt')
             torch.save(model.state_dict(), best_checkpoint_path)
             print('Saved best model checkpoint to disk.')
