@@ -84,6 +84,7 @@ class PointgoalEstimator:
             action_embedding_on,
             depth_discretization_on,
             rotation_regularization_on,
+            vertical_flip_on,
             device
     ):
         self.obs_transforms = obs_transforms
@@ -91,7 +92,7 @@ class PointgoalEstimator:
         self.action_embedding_on = action_embedding_on
         self.depth_discretization_on = depth_discretization_on
         self.rotation_regularization_on = rotation_regularization_on
-        self.vertical_flip_on = True
+        self.vertical_flip_on = vertical_flip_on
         self.prev_observations = None
         self.pointgoal = None
         self.device = device
@@ -368,6 +369,7 @@ def main():
     parser.add_argument("--vo-config-path", type=str, default="vo_config.yaml")
     parser.add_argument("--vo-checkpoint-path", type=str, default="vo.ckpt.pth")
     parser.add_argument("--rotation-regularization-on", action='store_true')
+    parser.add_argument("--vertical-flip-on", action='store_true')
     parser.add_argument("--pth-gpu-id", type=int, default=0)
     parser.add_argument("--seed", type=int, default=24121997)
     args = parser.parse_args()
@@ -402,6 +404,7 @@ def main():
             action_embedding_on=vo_config.model.params.action_embedding_size > 0,
             depth_discretization_on=vo_config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0,
             rotation_regularization_on=args.rotation_regularization_on,
+            vertical_flip_on=args.vertical_flip_on,
             device=device
         )
         agent = PPOAgentV2(config, pointgoal_estimator)
