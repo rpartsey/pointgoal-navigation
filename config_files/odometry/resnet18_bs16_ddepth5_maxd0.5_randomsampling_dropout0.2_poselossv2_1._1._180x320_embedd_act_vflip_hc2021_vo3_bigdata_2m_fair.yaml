@@ -1,0 +1,130 @@
+experiment_name: resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_2m
+log_dir: ../experiments
+epochs: 150
+device: cuda:0
+seed: 1
+distrib_backend: NCCL
+
+transforms:
+  ConvertToTensor:
+    rank: 1
+    params: null
+  DiscretizeDepth:
+    rank: 2
+    params:
+      n_channels: 5
+      min_depth: 0
+      max_depth: 0.5
+  PermuteChannels:
+    rank: 3
+    params: null
+  Resize:
+    rank: 4
+    params:
+      size: [180, 320]
+      interpolation: BILINEAR
+  Normalize:
+    rank: 5
+    params: null
+
+train:
+  dataset:
+    type: EgoMotionDataset
+    params:
+      data_root: /private/home/maksymets/pointgoal-navigation/data/vo_datasets_2m/ # /home/rpartsey/data/habitat/vo_datasets/noisy_plus_noisy_big/
+      environment_dataset: gibson
+      split: train  # train_train
+      invert_rotations: True
+    augmentations:
+      VFlip:
+        params: null
+  loader:
+    type: EgoDataLoader
+    params:
+      batch_size: 16
+      num_workers: 10
+      shuffle: False
+      sampler: null
+  metrics:
+    - translation_mae
+    - rotation_mae
+
+#train_val:
+#  dataset:
+#    type: EgoMotionDataset
+#    params:
+#      data_root: /home/rpartsey/data/habitat/vo_datasets/noisy
+#      environment_dataset: gibson
+#      split: train_val
+#      invert_rotations: False
+#      num_points: null
+#    augmentations: null
+#  loader:
+#    type: EgoDataLoader
+#    params:
+#      batch_size: 16
+#      num_workers: 12
+#      shuffle: False
+#      sampler: null
+#  metrics:
+#    - translation_mae
+#    - rotation_mae
+
+val:
+  dataset:
+    type: EgoMotionDataset
+    params:
+      data_root: /private/home/maksymets/pointgoal-navigation/data/vo_datasets_2m/ #/home/rpartsey/data/habitat/vo_datasets/noisy
+      environment_dataset: gibson
+      split: val
+      invert_rotations: False
+    augmentations: null
+  loader:
+    type: EgoDataLoader
+    params:
+      batch_size: 16
+      num_workers: 10
+      shuffle: False
+      sampler: null
+  metrics:
+    - translation_mae
+    - rotation_mae
+
+model:
+  type: VONetV3
+  save: True
+  pretrained_checkpoint: null #/home/rpartsey/code/3d-navigation/pointgoal-navigation/experiments/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poseloss1._1._180x320_embedd_act_vflip_hc2021_vo3/best_checkpoint_36e.pt
+  params:
+    encoder:
+      type: resnet18
+      params:
+        depth: 5
+        weights: null
+        in_channels: 18
+        in_height: 180
+        in_width: 320
+        base_planes: 32
+        ngroups: 16 # base_planes // 2
+        num_compression_channels: 35 # 2100 - flat size
+    fc:
+      params:
+        hidden_size: [512, 512]
+        output_size: 4
+        p_dropout: 0.2
+    collision_embedding_size: 0
+    action_embedding_size: 16
+
+loss:
+  type: PoseLossV2
+  params:
+    alpha: 1.
+    beta: 1.
+
+optim:
+  type: Adam
+  params:
+    lr: 0.0001
+
+stopper:
+  params:
+    patience: 15
