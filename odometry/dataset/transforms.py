@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 
 import torch
@@ -198,3 +199,19 @@ class Crop:
                 data[k] = v[target_i:target_i + self.crop_h, target_j:target_j + self.crop_w, :]
 
         return data
+
+
+class ToGray:
+    def __init__(self, depth_mask=False):
+        self.depth_mask = depth_mask
+
+    def __call__(self, item):
+
+        item['source_rgb'] = np.expand_dims(cv2.cvtColor(item['source_rgb'], cv2.COLOR_RGB2GRAY), 2)
+        item['target_rgb'] = np.expand_dims(cv2.cvtColor(item['target_rgb'], cv2.COLOR_RGB2GRAY), 2)
+
+        if self.depth_mask:
+            item['source_rgb'] = item['source_rgb'] * (item['source_depth'] != 0)
+            item['target_rgb'] = item['target_rgb'] * (item['target_depth'] != 0)
+
+        return item

@@ -16,15 +16,16 @@ def set_random_seed(seed):
 def transform_batch(batch):
     source_input, target_input = [], []
 
-    source_images = batch['source_rgb']
-    target_images = batch['target_rgb']
-    source_input += [source_images]
-    target_input += [target_images]
-
     source_depth_maps = batch['source_depth']
     target_depth_maps = batch['target_depth']
     source_input += [source_depth_maps]
     target_input += [target_depth_maps]
+
+    if 'source_rgb' in batch:
+        source_images = batch['source_rgb']
+        target_images = batch['target_rgb']
+        source_input += [source_images]
+        target_input += [target_images]
 
     if all(key in batch for key in ['source_depth_discretized', 'target_depth_discretized']):
         source_d_depth = batch['source_depth_discretized']

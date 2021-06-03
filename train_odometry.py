@@ -206,11 +206,15 @@ def parse_args():
         action='store_true',
     )
     parser.add_argument(
-        '--not-use-turn_right',
+        '--not-use-turn-right',
         action='store_true',
     )
     parser.add_argument(
         '--not-use-move-forward',
+        action='store_true',
+    )
+    parser.add_argument(
+        '--not-use-rgb',
         action='store_true',
     )
     args = parser.parse_args()
@@ -237,6 +241,7 @@ def main():
     config.train.dataset.params.not_use_turn_left = args.not_use_turn_left
     config.train.dataset.params.not_use_turn_right = args.not_use_turn_right
     config.train.dataset.params.not_use_move_forward = args.not_use_move_forward
+    config.train.dataset.params.not_use_rgb = args.not_use_rgb
 
     config.val.dataset.params.num_points = args.num_dataset_items
     config.val.dataset.params.invert_rotations = args.invert_rotations_val
@@ -244,6 +249,7 @@ def main():
     config.val.dataset.params.not_use_turn_left = args.not_use_turn_left
     config.val.dataset.params.not_use_turn_right = args.not_use_turn_right
     config.val.dataset.params.not_use_move_forward = args.not_use_move_forward
+    config.val.dataset.params.not_use_rgb = args.not_use_rgb
 
     if hasattr(config, 'train_val'):
         config.train_val.dataset.params.num_points = args.num_dataset_items
@@ -252,6 +258,7 @@ def main():
         config.train_val.dataset.params.not_use_turn_left = args.not_use_turn_left
         config.train_val.dataset.params.not_use_turn_right = args.not_use_turn_right
         config.train_val.dataset.params.not_use_move_forward = args.not_use_move_forward
+        config.train_val.dataset.params.not_use_rgb = args.not_use_rgb
     config.freeze()
 
     # init distributed if run with torch.distributed.launch
@@ -329,7 +336,7 @@ def main():
             print_metrics('Train-val', train_val_metrics)
 
         early_stopping(val_metrics['loss'])
-        if rank0_only() and config.model.save and early_stopping.counter == 0:
+        if rank0_only() and config.model.save:  # and early_stopping.counter == 0:
             best_checkpoint_path = config.model.best_checkpoint_path.replace('.pt', f'_{str(epoch).zfill(3)}e.pt')
             torch.save(model.state_dict(), best_checkpoint_path)
             print('Saved best model checkpoint to disk.')
