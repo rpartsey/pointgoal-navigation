@@ -16,6 +16,7 @@ import quaternion
 import numba
 import numpy as np
 import torch
+import torchvision.transforms.functional as F
 from gym.spaces import Box
 from gym.spaces import Dict as SpaceDict
 from gym.spaces import Discrete
@@ -84,6 +85,7 @@ class PointgoalEstimator:
             action_embedding_on,
             depth_discretization_on,
             rotation_regularization_on,
+            vertical_flip_on,
             device
     ):
         self.obs_transforms = obs_transforms
@@ -91,6 +93,7 @@ class PointgoalEstimator:
         self.action_embedding_on = action_embedding_on
         self.depth_discretization_on = depth_discretization_on
         self.rotation_regularization_on = rotation_regularization_on
+        self.vertical_flip_on = vertical_flip_on
         self.prev_observations = None
         self.pointgoal = None
         self.device = device
@@ -112,7 +115,26 @@ class PointgoalEstimator:
         )
 
     def __call__(self, observations, action):
-        egomotion_estimates = self._compute_egomotion(observations, action)
+        visual_obs = {
+            'source_rgb': self.prev_observations['rgb'],
+            'target_rgb': observations['rgb'],
+            'source_depth': self.prev_observations['depth'],
+            'target_depth': observations['depth']
+        }
+        egomotion_estimates = self._compute_egomotion(visual_obs, action)
+
+        if self.vertical_flip_on:
+            vflip_visual_obs = {
+                'source_rgb': np.fliplr(self.prev_observations['rgb']).copy(),
+                'target_rgb': np.fliplr(observations['rgb']).copy(),
+                'source_depth': np.fliplr(self.prev_observations['depth']).copy(),
+                'target_depth': np.fliplr(observations['depth']).copy()
+            }
+            vflip_action = INVERSE_ACTION[action] if action in ROTATION_ACTIONS else action
+            vflip_egomotion_estimates = self._compute_egomotion(vflip_visual_obs, vflip_action)
+
+            egomotion_estimates = (egomotion_estimates + vflip_egomotion_estimates * torch.tensor([-1, 1, 1, -1])) / 2
+
         direction_vector_agent_cart = self._compute_pointgoal(*egomotion_estimates)
         assert direction_vector_agent_cart[3] == 1.
 
@@ -128,13 +150,7 @@ class PointgoalEstimator:
         self.prev_observations = observations
         self.pointgoal = polar_to_cartesian(*observations[PointGoalSensor.cls_uuid])
 
-    def _compute_egomotion(self, observations, action):
-        visual_obs = {
-            'source_rgb': self.prev_observations['rgb'],
-            'target_rgb': observations['rgb'],
-            'source_depth': self.prev_observations['depth'],
-            'target_depth': observations['depth']
-        }
+    def _compute_egomotion(self, visual_obs, action):
         if self.action_embedding_on:
             visual_obs['action'] = action - 1  # shift all action ids as we don't use 0 - STOP
 
@@ -354,6 +370,7 @@ def main():
     parser.add_argument("--vo-config-path", type=str, default="vo_config.yaml")
     parser.add_argument("--vo-checkpoint-path", type=str, default="vo.ckpt.pth")
     parser.add_argument("--rotation-regularization-on", action='store_true')
+    parser.add_argument("--vertical-flip-on", action='store_true')
     parser.add_argument("--pth-gpu-id", type=int, default=0)
     parser.add_argument("--seed", type=int, default=24121997)
     args = parser.parse_args()
@@ -394,6 +411,7 @@ def main():
             depth_discretization_on=(hasattr(vo_config.val.dataset.transforms, 'DiscretizeDepth')
                                      and vo_config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0),
             rotation_regularization_on=args.rotation_regularization_on,
+            vertical_flip_on=args.vertical_flip_on,
             device=device
         )
         agent = PPOAgentV2(config, pointgoal_estimator)
