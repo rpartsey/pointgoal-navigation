@@ -1,0 +1,61 @@
+ENVIRONMENT:
+  MAX_EPISODE_STEPS: 500
+  ITERATOR_OPTIONS:
+    SHUFFLE: False
+SIMULATOR:
+  TURN_ANGLE: 30
+  AGENT_0:
+    SENSORS: ['RGB_SENSOR', 'DEPTH_SENSOR']
+    HEIGHT: 0.88
+    RADIUS: 0.18
+  HABITAT_SIM_V0:
+    GPU_DEVICE_ID: 0
+    ALLOW_SLIDING: False
+  RGB_SENSOR:
+    WIDTH: 640
+    HEIGHT: 360
+    HFOV: 70
+    POSITION: [0, 0.88, 0]
+    ORIENTATION: [-0.3490659, 0, 0] # -20 degrees
+    NOISE_MODEL: "GaussianNoiseModel"
+    NOISE_MODEL_KWARGS:
+      intensity_constant: 0.1
+
+  DEPTH_SENSOR:
+    WIDTH: 640
+    HEIGHT: 360
+    HFOV: 70
+    MIN_DEPTH: 0.1
+    MAX_DEPTH: 10.0
+    POSITION: [0, 0.88, 0]
+    ORIENTATION: [-0.3490659, 0, 0] # -20 degrees
+    NOISE_MODEL: "RedwoodDepthNoiseModel"
+
+  ACTION_SPACE_CONFIG: 'pyrobotnoisy'
+  NOISE_MODEL:
+    ROBOT: "LoCoBot"
+    CONTROLLER: 'Proportional'
+    NOISE_MULTIPLIER: 0.5
+
+TASK:
+  TYPE: Nav-v0
+  SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius
+  SENSORS: [ 'POINTGOAL_WITH_EGO_PREDICTION_SENSOR' ]
+  POINTGOAL_WITH_EGO_PREDICTION_SENSOR:
+    TYPE: PointGoalWithEgoPredictionsSensor
+    GOAL_FORMAT: "POLAR"
+    DIMENSIONALITY: 2
+    TRAIN_CONFIG_PATH: /private/home/maksymets/pointgoal-navigation/config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_2m_fair.yaml
+    CHECKPOINT_PATH: /private/home/maksymets/experiments/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_2m/best_checkpoint_078e.pt
+    GPU_DEVICE_ID: 0
+    ROTATION_REGULARIZATION: False
+  GOAL_SENSOR_UUID: pointgoal_with_ego_predictions
+  MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL']
+  SUCCESS:
+    SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius
+
+DATASET:
+  TYPE: PointNav-v1
+  SPLIT: train
+  DATA_PATH: data/datasets/pointnav/gibson/v2/{split}/{split}.json.gz
+  SCENES_DIR: data/scene_datasets/
