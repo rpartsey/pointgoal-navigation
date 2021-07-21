@@ -10,13 +10,12 @@ import copy
 import os
 import random
 from collections import OrderedDict
-from typing import Dict, Optional
+from typing import Optional, Union, Dict, Any
 
 import quaternion
 import numba
 import numpy as np
 import torch
-import torchvision.transforms.functional as F
 from gym.spaces import Box
 from gym.spaces import Dict as SpaceDict
 from gym.spaces import Discrete
@@ -30,6 +29,7 @@ from habitat.tasks.nav.nav import (
     PointGoalSensor, IntegratedPointGoalGPSAndCompassSensor,
     EpisodicGPSSensor, EpisodicCompassSensor, StopAction
 )
+from habitat.tasks.nav.shortest_path_follower import ShortestPathFollower
 from habitat.tasks.nav.object_nav_task import ObjectGoalSensor
 from habitat.tasks.utils import cartesian_to_polar
 from habitat_baselines.common.baseline_registry import baseline_registry
@@ -322,6 +322,7 @@ class PPOAgent(Agent):
 
         return {"action": actions[0][0].item()}
 
+
 # TODO: come up with a more descriptive class name
 class PPOAgentV2(PPOAgent):
     def __init__(self, config: Config, pointgoal_estimator: PointgoalEstimator):
@@ -360,19 +361,42 @@ class PPOAgentV2(PPOAgent):
         return super().act(observations)
 
 
+class ShortestPathFollowerAgent(Agent):
+    def __init__(self, env, goal_radius):
+        self.env = env
+        self.shortest_path_follower = ShortestPathFollower(
+            sim=env.sim,
+            goal_radius=goal_radius,
+            return_one_hot=False
+        )
+
+    def act(self, observations) -> Union[int, str, Dict[str, Any]]:
+        return self.shortest_path_follower.get_next_action(
+            self.env.current_episode.goals[0].position
+        )
+
+    def reset(self) -> None:
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--agent-type", type=str, choices=["PPOAgentV2", "PPOAgent"], default="PPOAgentV2")
+    parser.add_argument(
+        "--agent-type",
+        type=str,
+        choices=["PPOAgentV2", "PPOAgent", "ShortestPathFollowerAgent"],
+        default="PPOAgentV2"
+    )
     parser.add_argument("--input-type", type=str, choices=["rgb", "depth", "rgbd"], default="rgbd")
     parser.add_argument("--evaluation", type=str, required=True, choices=["local", "remote"])
-    parser.add_argument("--ddppo-config-path", type=str, required=True)
-    parser.add_argument("--ddppo-checkpoint-path", type=str, required=True)
+    parser.add_argument("--ddppo-config-path", type=str, required=False)
+    parser.add_argument("--ddppo-checkpoint-path", type=str, required=False)
     parser.add_argument("--vo-config-path", type=str, default="vo_config.yaml")
     parser.add_argument("--vo-checkpoint-path", type=str, default="vo.ckpt.pth")
     parser.add_argument("--rotation-regularization-on", action='store_true')
     parser.add_argument("--vertical-flip-on", action='store_true')
-    parser.add_argument("--pth-gpu-id", type=int, default=0)
-    parser.add_argument("--seed", type=int, default=24121997)
+    parser.add_argument("--pth-gpu-id", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()
 
     config_paths = os.environ["CHALLENGE_CONFIG_FILE"]
@@ -385,6 +409,12 @@ def main():
     config.INPUT_TYPE = args.input_type
     config.MODEL_PATH = args.ddppo_checkpoint_path
     config.freeze()
+
+    if args.evaluation == "local":
+        challenge = habitat.Challenge(eval_remote=False)
+        challenge._env.seed(config.RANDOM_SEED)
+    else:
+        challenge = habitat.Challenge(eval_remote=True)
 
     if args.agent_type == PPOAgent.__name__:
         agent = PPOAgent(config)
@@ -416,14 +446,16 @@ def main():
         )
         agent = PPOAgentV2(config, pointgoal_estimator)
 
+    elif args.agent_type == ShortestPathFollowerAgent.__name__:
+        assert args.evaluation == "local", "ShortestPathFollowerAgent supports only local evaluation"
+
+        agent = ShortestPathFollowerAgent(
+            env=challenge._env,
+            goal_radius=config.TASK_CONFIG.TASK.SUCCESS.SUCCESS_DISTANCE
+        )
+
     else:
         raise ValueError(f'{args.agent_type} agent type doesn\'t exist!' )
-
-    if args.evaluation == "local":
-        challenge = habitat.Challenge(eval_remote=False)
-        challenge._env.seed(config.RANDOM_SEED)
-    else:
-        challenge = habitat.Challenge(eval_remote=True)
 
     challenge.submit(agent)
 
