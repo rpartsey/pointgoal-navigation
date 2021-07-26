@@ -182,9 +182,19 @@ class HSimDataset(IterableDataset):
         'TURN_RIGHT': 3
     }
 
-    def __init__(self, config_file_path, steps_to_change_scene, transforms, augmentations=None):
+    def __init__(
+            self,
+            config_file_path,
+            steps_to_change_scene,
+            transforms,
+            augmentations=None,
+            local_rank=None,
+            world_size=None
+    ):
         self.config_file_path = config_file_path
         self.steps_to_change_scene = steps_to_change_scene
+        self.local_rank = local_rank
+        self.world_size = world_size
         self.start = None
         self.stop = None
         self.sim = None
@@ -209,9 +219,7 @@ class HSimDataset(IterableDataset):
         )
         scene_ids = dataset.scene_ids
         # uniformly split scenes across torch DataLoader workers:
-        self.split_workload(
-            num_scenes=len(scene_ids)
-        )
+        self.split_scenes(num_scenes=len(scene_ids))
 
         scene_id_gen = itertools.cycle(scene_ids[self.start:self.stop])
         episode_gen = generate_pointnav_episode(
@@ -283,15 +291,35 @@ class HSimDataset(IterableDataset):
         self.config.freeze()
         self.sim.reconfigure(self.config.SIMULATOR)
 
-    def split_workload(self, num_scenes):
+    @staticmethod
+    def split_workload(start, stop, worker_id, num_workers):
+        per_worker = int(np.ceil((stop - start) / num_workers))
+        iter_start = worker_id * per_worker
+        iter_stop = min(iter_start + per_worker, stop)
+
+        return iter_start, iter_stop
+
+    def split_scenes(self, num_scenes):
+        if self.local_rank is None:
+            distrib_worker_start, distrib_worker_stop = (0, num_scenes)
+        else:
+            distrib_worker_start, distrib_worker_stop = self.split_workload(
+                start=0,
+                stop=num_scenes,
+                worker_id=self.local_rank,
+                num_workers=self.world_size
+            )
+
         worker_info = torch.utils.data.get_worker_info()
         if worker_info is None:
-            self.start = 0
-            self.stop = num_scenes
+            self.start, self.stop = (distrib_worker_start, distrib_worker_stop)
         else:
-            per_worker = int(np.ceil(num_scenes / worker_info.num_workers))
-            self.start = worker_info.id * per_worker
-            self.stop = min(self.start + per_worker, num_scenes)
+            self.start, self.stop = self.split_workload(
+                start=distrib_worker_start,
+                stop=distrib_worker_stop,
+                worker_id=worker_info.id,
+                num_workers=worker_info.num_workers
+            )
 
     @classmethod
     def from_config(cls, config, transforms, augmentations=None):

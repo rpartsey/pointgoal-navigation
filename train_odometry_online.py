@@ -259,7 +259,9 @@ def main():
 
         config.defrost()
         config.device = local_rank
-        config.train.loader.is_distributed = True
+        config.train.dataset.params.local_rank = local_rank
+        config.train.dataset.params.world_size = torch.distributed.get_world_size()
+        config.train.loader.is_distributed = False
         config.val.loader.is_distributed = True
         config.freeze()
 
