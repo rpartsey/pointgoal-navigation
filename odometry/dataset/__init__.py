@@ -24,7 +24,7 @@ def make_transforms(transforms_config):
 
 
 def make_sampler(loader_config, dataset):
-    sampler_name = loader_config.params.sampler
+    sampler_name = loader_config.params.pop('sampler', None)
     if sampler_name:
         sampler_type = getattr(samplers_module, sampler_name)
         sampler = sampler_type(dataset)

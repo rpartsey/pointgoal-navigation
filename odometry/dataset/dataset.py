@@ -3,6 +3,7 @@ import json
 import itertools
 from glob import glob
 from typing import Iterator
+import multiprocessing as mp
 
 import quaternion
 import numpy as np
@@ -307,10 +308,10 @@ class EgoDataLoader(DataLoader):
     @classmethod
     def from_config(cls, config, dataset, sampler):
         loader_params = config.params
+        multiprocessing_context = loader_params.pop('multiprocessing_context', 'fork')
         return cls(
             dataset=dataset,
-            batch_size=loader_params.batch_size,
-            num_workers=loader_params.num_workers,
-            shuffle=loader_params.shuffle,
-            sampler=sampler
+            sampler=sampler,
+            multiprocessing_context=mp.get_context(multiprocessing_context),
+            **loader_params
         )
