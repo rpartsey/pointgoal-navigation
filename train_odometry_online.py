@@ -371,6 +371,9 @@ def main():
 
             model.train()
 
+            if epoch > config.epochs:
+                break
+
     train_writer.close()
     val_writer.close()
 
