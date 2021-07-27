@@ -336,10 +336,11 @@ class EgoDataLoader(DataLoader):
     @classmethod
     def from_config(cls, config, dataset, sampler):
         loader_params = config.params
-        multiprocessing_context = loader_params.pop('multiprocessing_context', 'fork')
+        mp_context_name = loader_params.pop('multiprocessing_context', 'fork')
+        mp_context = mp.get_context(mp_context_name) if loader_params.num_workers > 0 else None
         return cls(
             dataset=dataset,
             sampler=sampler,
-            multiprocessing_context=mp.get_context(multiprocessing_context),
+            multiprocessing_context=mp_context,
             **loader_params
         )

@@ -6,6 +6,7 @@ seed: 1
 distrib_backend: NCCL
 compute_metrics_per_action: True
 batches_per_epoch: 1250
+shuffle_train_batch: True
 
 transforms:
   ConvertToTensor:

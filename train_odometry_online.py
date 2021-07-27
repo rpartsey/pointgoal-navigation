@@ -3,6 +3,7 @@ import shutil
 import argparse
 from collections import defaultdict
 
+import numpy as np
 from habitat_baselines.rl.ddppo.algo.ddp_utils import get_distrib_size, init_distrib_slurm, rank0_only
 from tqdm import tqdm
 import torch
@@ -303,6 +304,16 @@ def main():
 
     for batch_index, data in enumerate(train_loader):
         data, embeddings, target = transform_batch(data)
+
+        if hasattr(config, 'shuffle_train_batch') and config.shuffle_train_batch:
+            indices = list(range(data.shape[0]))
+            np.random.shuffle(indices)
+
+            data = data[indices]
+            target = target[indices]
+            for k, v in embeddings.items():
+                embeddings[k] = embeddings[k][indices]
+
         data = data.float().to(device)
         target = target.float().to(device)
         for k, v in embeddings.items():
