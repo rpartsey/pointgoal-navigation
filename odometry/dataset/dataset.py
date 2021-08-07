@@ -5,6 +5,7 @@ from glob import glob
 from typing import Iterator
 import multiprocessing as mp
 
+import os
 import quaternion
 import numpy as np
 from PIL import Image
@@ -221,11 +222,16 @@ class HSimDataset(IterableDataset):
         # uniformly split scenes across torch DataLoader workers:
         self.split_scenes(num_scenes=len(scene_ids))
 
-        scene_id_gen = itertools.cycle(scene_ids[self.start:self.stop])
+        worker_scenes = scene_ids[self.start:self.stop]
+        scene_id_gen = itertools.cycle(worker_scenes)
         episode_gen = generate_pointnav_episode(
             sim=self.sim,
             is_gen_shortest_path=False
         )
+
+        worker_id = torch.utils.data.get_worker_info().id
+        dest_path = '/home/rpartsey/code/3d-navigation/pointgoal-navigation/viz_images/seq'
+        episode_id = 0
 
         step = 0
         while True:
@@ -237,11 +243,15 @@ class HSimDataset(IterableDataset):
                 self.reconfigure_episode(current_episode)
                 self.sim.reset()
 
+                episode_id += 1
+
             action = spf.get_next_action(current_episode.goals[0].position)
             if action == self.ACTION_TO_ID['STOP']:
                 current_episode = next(episode_gen)
                 self.reconfigure_episode(current_episode)
                 self.sim.reset()
+
+                episode_id += 1
                 continue
 
             prev_observation = self.sim._prev_sim_obs
@@ -268,6 +278,17 @@ class HSimDataset(IterableDataset):
                     }
                 })
             }
+
+            episode_id_str = f'{episode_id}'.zfill(5)
+            step_str = f'{step}'.zfill(3)
+            scene_name = os.path.basename(current_scene_id).split('.')[0]
+
+            spath = f'{dest_path}/worker_{worker_id}_{episode_id_str}_{scene_name}_{step_str}_source.png'
+            tpath = f'{dest_path}/worker_{worker_id}_{episode_id_str}_{scene_name}_{step_str}_target.png'
+
+            Image.fromarray(item['source_rgb']).save(spath)
+            Image.fromarray(item['target_rgb']).save(tpath)
+
             if self.augmentations is not None:
                 item = self.augmentations(item)
 
