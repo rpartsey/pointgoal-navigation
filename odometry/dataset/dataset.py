@@ -1,4 +1,5 @@
 import copy
+import gzip
 import json
 import itertools
 from glob import glob
@@ -10,6 +11,7 @@ import numpy as np
 from PIL import Image
 
 import torch
+from torch.utils.data.dataloader import default_collate
 from torch.utils.data.dataset import T_co
 from torch.utils.data import Dataset, DataLoader, IterableDataset
 
@@ -17,7 +19,7 @@ from habitat import get_config, make_dataset
 from habitat.sims import make_sim
 from habitat.tasks.nav.shortest_path_follower import ShortestPathFollower
 from habitat.datasets.pointnav.pointnav_generator import generate_pointnav_episode
-from habitat.tasks.nav.nav import merge_sim_episode_config
+from habitat.tasks.nav.nav import merge_sim_episode_config, NavigationEpisode
 
 from odometry.dataset.utils import get_relative_egomotion
 
@@ -174,6 +176,164 @@ class EgoMotionDataset(Dataset):
         )
 
 
+# class HSimDataset(IterableDataset):
+#     ACTION_TO_ID = {
+#         'STOP': 0,
+#         'MOVE_FORWARD': 1,
+#         'TURN_LEFT': 2,
+#         'TURN_RIGHT': 3
+#     }
+#
+#     def __init__(
+#             self,
+#             config_file_path,
+#             steps_to_change_scene,
+#             transforms,
+#             augmentations=None,
+#             local_rank=None,
+#             world_size=None
+#     ):
+#         self.config_file_path = config_file_path
+#         self.steps_to_change_scene = steps_to_change_scene
+#         self.local_rank = local_rank
+#         self.world_size = world_size
+#         self.start = None
+#         self.stop = None
+#         self.sim = None
+#         self.config = None
+#         self.transforms = transforms
+#         self.augmentations = augmentations
+#
+#     def __iter__(self) -> Iterator[T_co]:
+#         self.config = get_config(self.config_file_path)
+#         self.sim = make_sim(
+#             id_sim=self.config.SIMULATOR.TYPE,
+#             config=self.config.SIMULATOR
+#         )
+#         spf = ShortestPathFollower(
+#             sim=self.sim,
+#             goal_radius=self.config.TASK.SUCCESS.SUCCESS_DISTANCE,
+#             return_one_hot=False
+#         )
+#         dataset = make_dataset(
+#             id_dataset=self.config.DATASET.TYPE,
+#             config=self.config.DATASET
+#         )
+#         scene_ids = dataset.scene_ids
+#         # uniformly split scenes across torch DataLoader workers:
+#         self.split_scenes(num_scenes=len(scene_ids))
+#
+#         scene_id_gen = itertools.cycle(scene_ids[self.start:self.stop])
+#         episode_gen = generate_pointnav_episode(
+#             sim=self.sim,
+#             is_gen_shortest_path=False
+#         )
+#
+#         step = 0
+#         while True:
+#             if step % self.steps_to_change_scene == 0:
+#                 current_scene_id = next(scene_id_gen)
+#                 self.reconfigure_scene(current_scene_id)
+#
+#                 current_episode = next(episode_gen)
+#                 self.reconfigure_episode(current_episode)
+#                 self.sim.reset()
+#
+#             action = spf.get_next_action(current_episode.goals[0].position)
+#             if action == self.ACTION_TO_ID['STOP']:
+#                 current_episode = next(episode_gen)
+#                 self.reconfigure_episode(current_episode)
+#                 self.sim.reset()
+#                 continue
+#
+#             prev_observation = self.sim._prev_sim_obs
+#             prev_agent_state = self.sim.get_agent_state()
+#
+#             observation = self.sim.step(action)
+#             agent_state = self.sim.get_agent_state()
+#
+#             item = {
+#                 'source_depth': np.expand_dims(prev_observation['depth'], 2),
+#                 'target_depth': observation['depth'],
+#                 'source_rgb': prev_observation['rgb'][:, :, :3],
+#                 'target_rgb': observation['rgb'],
+#                 'action': action - 1,  # shift action ids by 1 as we don't use STOP
+#                 'collision': int(self.sim.previous_step_collided),
+#                 'egomotion': get_relative_egomotion({
+#                     'source_agent_state': {
+#                         'position': prev_agent_state.position.tolist(),
+#                         'rotation': quaternion.as_float_array(prev_agent_state.rotation).tolist()
+#                     },
+#                     'target_agent_state': {
+#                         'position': agent_state.position.tolist(),
+#                         'rotation': quaternion.as_float_array(agent_state.rotation).tolist()
+#                     }
+#                 })
+#             }
+#             if self.augmentations is not None:
+#                 item = self.augmentations(item)
+#
+#             item = self.transforms(item)
+#
+#             step += 1
+#             yield item
+#
+#     def reconfigure_scene(self, scene_id):
+#         self.config.defrost()
+#         self.config.SIMULATOR.SCENE = scene_id
+#         self.config.freeze()
+#         self.sim.reconfigure(self.config.SIMULATOR)
+#
+#     def reconfigure_episode(self, episode):
+#         self.config.defrost()
+#         self.config.SIMULATOR = merge_sim_episode_config(
+#             self.config.SIMULATOR,
+#             episode
+#         )
+#         self.config.freeze()
+#         self.sim.reconfigure(self.config.SIMULATOR)
+#
+#     @staticmethod
+#     def split_workload(start, stop, worker_id, num_workers):
+#         per_worker = int(np.ceil((stop - start) / num_workers))
+#         iter_start = worker_id * per_worker
+#         iter_stop = min(iter_start + per_worker, stop)
+#
+#         return iter_start, iter_stop
+#
+#     def split_scenes(self, num_scenes):
+#         if self.local_rank is None:
+#             distrib_worker_start, distrib_worker_stop = (0, num_scenes)
+#         else:
+#             distrib_worker_start, distrib_worker_stop = self.split_workload(
+#                 start=0,
+#                 stop=num_scenes,
+#                 worker_id=self.local_rank,
+#                 num_workers=self.world_size
+#             )
+#
+#         worker_info = torch.utils.data.get_worker_info()
+#         if worker_info is None:
+#             self.start, self.stop = (distrib_worker_start, distrib_worker_stop)
+#         else:
+#             self.start, self.stop = self.split_workload(
+#                 start=distrib_worker_start,
+#                 stop=distrib_worker_stop,
+#                 worker_id=worker_info.id,
+#                 num_workers=worker_info.num_workers
+#             )
+#
+#     @classmethod
+#     def from_config(cls, config, transforms, augmentations=None):
+#         dataset_params = config.params
+#         return cls(
+#             config_file_path=dataset_params.config_file_path,
+#             steps_to_change_scene=dataset_params.steps_to_change_scene,
+#             transforms=transforms,
+#             augmentations=augmentations,
+#         )
+
+
 class HSimDataset(IterableDataset):
     ACTION_TO_ID = {
         'STOP': 0,
@@ -188,6 +348,7 @@ class HSimDataset(IterableDataset):
             steps_to_change_scene,
             transforms,
             augmentations=None,
+            batch_size=None,
             local_rank=None,
             world_size=None
     ):
@@ -201,6 +362,7 @@ class HSimDataset(IterableDataset):
         self.config = None
         self.transforms = transforms
         self.augmentations = augmentations
+        self.batch_size = batch_size
 
     def __iter__(self) -> Iterator[T_co]:
         self.config = get_config(self.config_file_path)
@@ -218,6 +380,7 @@ class HSimDataset(IterableDataset):
             config=self.config.DATASET
         )
         scene_ids = dataset.scene_ids
+        print('all scenes:', scene_ids)
         # uniformly split scenes across torch DataLoader workers:
         self.split_scenes(num_scenes=len(scene_ids))
 
@@ -227,54 +390,60 @@ class HSimDataset(IterableDataset):
             is_gen_shortest_path=False
         )
 
-        step = 0
+        step = self.steps_to_change_scene
         while True:
-            if step % self.steps_to_change_scene == 0:
-                current_scene_id = next(scene_id_gen)
-                self.reconfigure_scene(current_scene_id)
+            batch = []
+            while len(batch) < self.batch_size:
+                if step == self.steps_to_change_scene:
+                    current_scene_id = next(scene_id_gen)
+                    self.reconfigure_scene(current_scene_id)
 
-                current_episode = next(episode_gen)
-                self.reconfigure_episode(current_episode)
-                self.sim.reset()
+                    current_episode = next(episode_gen)
+                    self.reconfigure_episode(current_episode)
+                    self.sim.reset()
+                    step = 0
 
-            action = spf.get_next_action(current_episode.goals[0].position)
-            if action == self.ACTION_TO_ID['STOP']:
-                current_episode = next(episode_gen)
-                self.reconfigure_episode(current_episode)
-                self.sim.reset()
-                continue
+                action = spf.get_next_action(current_episode.goals[0].position)
+                if action == self.ACTION_TO_ID['STOP']:
+                    current_episode = next(episode_gen)
+                    self.reconfigure_episode(current_episode)
+                    self.sim.reset()
+                    continue
 
-            prev_observation = self.sim._prev_sim_obs
-            prev_agent_state = self.sim.get_agent_state()
+                prev_observation = self.sim._prev_sim_obs
+                prev_agent_state = self.sim.get_agent_state()
 
-            observation = self.sim.step(action)
-            agent_state = self.sim.get_agent_state()
+                observation = self.sim.step(action)
+                agent_state = self.sim.get_agent_state()
 
-            item = {
-                'source_depth': np.expand_dims(prev_observation['depth'], 2),
-                'target_depth': observation['depth'],
-                'source_rgb': prev_observation['rgb'][:, :, :3],
-                'target_rgb': observation['rgb'],
-                'action': action - 1,  # shift action ids by 1 as we don't use STOP
-                'collision': int(self.sim.previous_step_collided),
-                'egomotion': get_relative_egomotion({
-                    'source_agent_state': {
-                        'position': prev_agent_state.position.tolist(),
-                        'rotation': quaternion.as_float_array(prev_agent_state.rotation).tolist()
-                    },
-                    'target_agent_state': {
-                        'position': agent_state.position.tolist(),
-                        'rotation': quaternion.as_float_array(agent_state.rotation).tolist()
-                    }
-                })
-            }
-            if self.augmentations is not None:
-                item = self.augmentations(item)
+                item = {
+                    'source_depth': np.expand_dims(prev_observation['depth'], 2),
+                    'target_depth': observation['depth'],
+                    'source_rgb': prev_observation['rgb'][:, :, :3],
+                    'target_rgb': observation['rgb'],
+                    'action': action - 1,  # shift action ids by 1 as we don't use STOP
+                    'collision': int(self.sim.previous_step_collided),
+                    'egomotion': get_relative_egomotion({
+                        'source_agent_state': {
+                            'position': prev_agent_state.position.tolist(),
+                            'rotation': quaternion.as_float_array(prev_agent_state.rotation).tolist()
+                        },
+                        'target_agent_state': {
+                            'position': agent_state.position.tolist(),
+                            'rotation': quaternion.as_float_array(agent_state.rotation).tolist()
+                        }
+                    })
+                }
+                if self.augmentations is not None:
+                    item = self.augmentations(item)
 
-            item = self.transforms(item)
+                item = self.transforms(item)
 
-            step += 1
-            yield item
+                batch.append(item)
+                step += 1
+
+            collated = default_collate(batch)
+            yield collated
 
     def reconfigure_scene(self, scene_id):
         self.config.defrost()
