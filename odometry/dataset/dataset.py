@@ -501,6 +501,153 @@ class HSimDataset(IterableDataset):
         )
 
 
+class HSimDatasetStatic(IterableDataset):
+    TURN_LEFT = 'TURN_LEFT'
+    TURN_RIGHT = 'TURN_RIGHT'
+    MOVE_FORWARD = 'MOVE_FORWARD'
+    ROTATION_ACTIONS = ['TURN_LEFT', 'TURN_RIGHT']
+    INVERSE_ACTION = {
+        'TURN_LEFT': 'TURN_RIGHT',
+        'TURN_RIGHT': 'TURN_LEFT'
+    }
+    ACTION_TO_ID = {
+        'STOP': 0,
+        'MOVE_FORWARD': 1,
+        'TURN_LEFT': 2,
+        'TURN_RIGHT': 3
+    }
+
+    def __init__(
+            self,
+            data_root,
+            environment_dataset,
+            split,
+            transforms,
+            steps_to_change_scene,
+            num_points=None,
+            augmentations=None,
+            batch_size=None,
+            local_rank=None,
+            world_size=None
+    ):
+        super().__init__()
+        self.data_root = data_root
+        self.environment_dataset = environment_dataset
+        self.split = split
+        self.transforms = transforms
+        self.augmentations = augmentations
+        self.jsons = self._load_jsons()
+        self.num_dataset_points = num_points or len(self.jsons)
+        self.meta_data = self.jsons[:self.num_dataset_points]
+        self.steps_to_change_scene = steps_to_change_scene
+        self.local_rank = local_rank
+        self.world_size = world_size
+        self.start = None
+        self.stop = None
+        self.batch_size = batch_size
+
+    def _load_jsons(self):
+        data = []
+
+        for file_path in glob(f'{self.data_root}/{self.environment_dataset}/{self.split}/*.json'):
+            with open(file_path, 'r') as file:
+                scene_content = json.load(file)
+
+            scene_dataset = scene_content['dataset']
+            data += scene_dataset
+
+        return data
+
+    def __iter__(self) -> Iterator[T_co]:
+        sorted_by_scene = sorted(self.meta_data, key=lambda el: el['scene'])
+        grouped_by_scene = [
+            (scene, itertools.cycle(iter(sorted(steps_iter, key=lambda el: (el['episode_id'], el['step_idx'])))))
+            for scene, steps_iter in itertools.groupby(sorted_by_scene, key=lambda el: el['scene'])
+        ]
+
+        self.split_scenes(num_scenes=len(grouped_by_scene))
+
+        worker_scenes = grouped_by_scene[self.start:self.stop]
+        scenes_iter = itertools.cycle(iter(worker_scenes))
+
+        step = self.steps_to_change_scene
+        while True:
+            batch = []
+            while len(batch) < self.batch_size:
+                if step == self.steps_to_change_scene:
+                    current_scene_id, scene_episode_steps_iter = next(scenes_iter)
+                    step = 0
+
+                meta = next(scene_episode_steps_iter)
+
+                source_depth = np.load(meta['source_depth_map_path'])
+                target_depth = np.load(meta['target_depth_map_path'])
+
+                item = {
+                    'source_depth': source_depth,
+                    'target_depth': target_depth,
+                    'action': self.ACTION_TO_ID[meta['action'][0]] - 1,  # shift action ids by 1 as we don't use STOP
+                    'collision': int(meta['collision']),
+                    'egomotion': get_relative_egomotion(meta),
+                }
+                source_rgb = Image.open(meta['source_frame_path']).convert('RGB')
+                target_rgb = Image.open(meta['target_frame_path']).convert('RGB')
+                item['source_rgb'] = np.asarray(source_rgb)
+                item['target_rgb'] = np.asarray(target_rgb)
+
+                if self.augmentations is not None:
+                    item = self.augmentations(item)
+
+                item = self.transforms(item)
+
+                batch.append(item)
+                step += 1
+
+            collated = default_collate(batch)
+            yield collated
+
+    @staticmethod
+    def split_workload(start, stop, worker_id, num_workers):
+        per_worker = int(np.ceil((stop - start) / num_workers))
+        iter_start = worker_id * per_worker
+        iter_stop = min(iter_start + per_worker, stop)
+
+        return iter_start, iter_stop
+
+    def split_scenes(self, num_scenes):
+        if self.local_rank is None:
+            distrib_worker_start, distrib_worker_stop = (0, num_scenes)
+        else:
+            distrib_worker_start, distrib_worker_stop = self.split_workload(
+                start=0,
+                stop=num_scenes,
+                worker_id=self.local_rank,
+                num_workers=self.world_size
+            )
+
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:
+            self.start, self.stop = (distrib_worker_start, distrib_worker_stop)
+        else:
+            self.start, self.stop = self.split_workload(
+                start=distrib_worker_start,
+                stop=distrib_worker_stop,
+                worker_id=worker_info.id,
+                num_workers=worker_info.num_workers
+            )
+
+    @classmethod
+    def from_config(cls, config, transforms, augmentations=None):
+        dataset_params = config.params
+        return cls(
+            data_root=dataset_params.data_root,
+            environment_dataset=dataset_params.environment_dataset,
+            split=dataset_params.split,
+            transforms=transforms,
+            num_points=dataset_params.num_points,
+            augmentations=augmentations,
+        )
+
 class EgoDataLoader(DataLoader):
     @classmethod
     def from_config(cls, config, dataset, sampler):

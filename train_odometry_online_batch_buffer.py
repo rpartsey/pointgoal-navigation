@@ -14,7 +14,7 @@ from habitat_baselines.common.tensor_dict import TensorDict
 from habitat_baselines.rl.ddppo.algo.ddp_utils import get_distrib_size, init_distrib_slurm, rank0_only
 
 from odometry.dataset import make_transforms, make_dataset, make_data_loader
-from odometry.dataset.dataset import HSimDataset
+from odometry.dataset.dataset import HSimDataset, HSimDatasetStatic
 from odometry.config.default import get_config
 from odometry.losses import make_loss
 from odometry.models import make_model
@@ -208,10 +208,10 @@ class ShuffleBatchBuffer:
 if __name__ == '__main__':
     dataset_batch_size = 16
     dataloader_batch_size = 16
-    buffer_max_num_batches = 300
+    buffer_max_num_batches = 100
     num_val_dataset_items = 6000
 
-    train_config_file_path = 'config_files/odometry/hsim/online_training_batch_buffer.yaml'
+    train_config_file_path = 'config_files/odometry/hsim/online_training_batch_buffer_static.yaml'
     config = get_config(train_config_file_path, new_keys_allowed=True)
 
     config.defrost()
@@ -222,12 +222,12 @@ if __name__ == '__main__':
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
 
     config.train.dataset.params.num_points = None
-    config.train.dataset.params.invert_rotations = False
-    config.train.dataset.params.invert_collisions = False
-    config.train.dataset.params.not_use_turn_left = False
-    config.train.dataset.params.not_use_turn_right = False
-    config.train.dataset.params.not_use_move_forward = False
-    config.train.dataset.params.not_use_rgb = False
+    # config.train.dataset.params.invert_rotations = False
+    # config.train.dataset.params.invert_collisions = False
+    # config.train.dataset.params.not_use_turn_left = False
+    # config.train.dataset.params.not_use_turn_right = False
+    # config.train.dataset.params.not_use_move_forward = False
+    # config.train.dataset.params.not_use_rgb = False
 
     config.val.dataset.params.num_points = num_val_dataset_items
     config.val.dataset.params.invert_rotations = False
@@ -257,8 +257,10 @@ if __name__ == '__main__':
     set_random_seed(config.seed)
 
     train_dataset_transforms = make_transforms(config.train.dataset.transforms)
-    train_dataset = HSimDataset(
-        config_file_path=config.train.dataset.params.config_file_path,
+    train_dataset = HSimDatasetStatic(
+        data_root=config.train.dataset.params.data_root,
+        environment_dataset=config.train.dataset.params.environment_dataset,
+        split=config.train.dataset.params.split,
         steps_to_change_scene=config.train.dataset.params.steps_to_change_scene,
         transforms=train_dataset_transforms,
         batch_size=dataset_batch_size
