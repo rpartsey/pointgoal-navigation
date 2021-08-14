@@ -2,6 +2,7 @@ import copy
 import gzip
 import json
 import itertools
+from collections import defaultdict
 from glob import glob
 from typing import Iterator
 import multiprocessing as mp
@@ -345,15 +346,15 @@ class HSimDataset(IterableDataset):
     def __init__(
             self,
             config_file_path,
-            steps_to_change_scene,
             transforms,
             augmentations=None,
             batch_size=None,
             local_rank=None,
-            world_size=None
+            world_size=None,
+            pairs_frac_per_episode=0.2,
+            n_episodes_per_scene=3
     ):
         self.config_file_path = config_file_path
-        self.steps_to_change_scene = steps_to_change_scene
         self.local_rank = local_rank
         self.world_size = world_size
         self.start = None
@@ -363,6 +364,8 @@ class HSimDataset(IterableDataset):
         self.transforms = transforms
         self.augmentations = augmentations
         self.batch_size = batch_size
+        self.pairs_frac_per_episode = pairs_frac_per_episode
+        self.n_episodes_per_scene = n_episodes_per_scene
 
     def __iter__(self) -> Iterator[T_co]:
         self.config = get_config(self.config_file_path)
@@ -379,8 +382,8 @@ class HSimDataset(IterableDataset):
             id_dataset=self.config.DATASET.TYPE,
             config=self.config.DATASET
         )
-        scene_ids = dataset.scene_ids
-        print('all scenes:', scene_ids)
+        scene_ids = copy.deepcopy(dataset.scene_ids)
+        del dataset
         # uniformly split scenes across torch DataLoader workers:
         self.split_scenes(num_scenes=len(scene_ids))
 
@@ -390,60 +393,81 @@ class HSimDataset(IterableDataset):
             is_gen_shortest_path=False
         )
 
-        step = self.steps_to_change_scene
+        obs_pairs = []
         while True:
-            batch = []
-            while len(batch) < self.batch_size:
-                if step == self.steps_to_change_scene:
-                    current_scene_id = next(scene_id_gen)
-                    self.reconfigure_scene(current_scene_id)
+            current_scene_id = next(scene_id_gen)
+            self.reconfigure_scene(current_scene_id)
 
-                    current_episode = next(episode_gen)
-                    self.reconfigure_episode(current_episode)
-                    self.sim.reset()
-                    step = 0
+            for _ in range(self.n_episodes_per_scene):
+                current_episode = next(episode_gen)
+                self.reconfigure_episode(current_episode)
 
-                action = spf.get_next_action(current_episode.goals[0].position)
-                if action == self.ACTION_TO_ID['STOP']:
-                    current_episode = next(episode_gen)
-                    self.reconfigure_episode(current_episode)
-                    self.sim.reset()
-                    continue
-
-                prev_observation = self.sim._prev_sim_obs
-                prev_agent_state = self.sim.get_agent_state()
-
-                observation = self.sim.step(action)
+                obs = self.sim.reset()
                 agent_state = self.sim.get_agent_state()
 
-                item = {
-                    'source_depth': np.expand_dims(prev_observation['depth'], 2),
-                    'target_depth': observation['depth'],
-                    'source_rgb': prev_observation['rgb'][:, :, :3],
-                    'target_rgb': observation['rgb'],
-                    'action': action - 1,  # shift action ids by 1 as we don't use STOP
-                    'collision': int(self.sim.previous_step_collided),
-                    'egomotion': get_relative_egomotion({
-                        'source_agent_state': {
-                            'position': prev_agent_state.position.tolist(),
-                            'rotation': quaternion.as_float_array(prev_agent_state.rotation).tolist()
-                        },
-                        'target_agent_state': {
-                            'position': agent_state.position.tolist(),
-                            'rotation': quaternion.as_float_array(agent_state.rotation).tolist()
-                        }
+                ep_buffer = defaultdict(list)
+                ep_buffer['observations'].append(obs)
+                ep_buffer['sim_states'].append(agent_state)
+
+                action = spf.get_next_action(current_episode.goals[0].position)
+                while action != self.ACTION_TO_ID['STOP']:
+                    obs = self.sim.step(action)
+                    agent_state = self.sim.get_agent_state()
+
+                    ep_buffer['actions'].append(action)
+                    ep_buffer['observations'].append(obs)
+                    ep_buffer['sim_states'].append(agent_state)
+                    ep_buffer['collisions'].append(self.sim.previous_step_collided)
+
+                    action = spf.get_next_action(current_episode.goals[0].position)
+
+                n_episode_steps = len(ep_buffer['observations'])
+                n_pairs_to_sample = int(np.ceil(self.pairs_frac_per_episode * n_episode_steps))
+
+                indices = list(range(n_episode_steps - 1))
+                np.random.shuffle(indices)
+                sample_indices = indices[:n_pairs_to_sample]
+
+                for i in sample_indices:
+                    source_obs = ep_buffer['observations'][i]
+                    target_obs = ep_buffer['observations'][i + 1]
+
+                    source_state = ep_buffer['sim_states'][i]
+                    target_state = ep_buffer['sim_states'][i + 1]
+
+                    action = ep_buffer['actions'][i]
+                    collision = ep_buffer['collisions'][i]
+
+                    obs_pairs.append({
+                        'source_depth': source_obs['depth'],
+                        'target_depth': target_obs['depth'],
+                        'source_rgb': source_obs['rgb'],
+                        'target_rgb': target_obs['rgb'],
+                        'action': action - 1,  # shift action ids by 1 as we don't use STOP
+                        'collision': int(collision),
+                        'egomotion': get_relative_egomotion({
+                            'source_agent_state': {
+                                'position': source_state.position.tolist(),
+                                'rotation': quaternion.as_float_array(source_state.rotation).tolist()
+                            },
+                            'target_agent_state': {
+                                'position': target_state.position.tolist(),
+                                'rotation': quaternion.as_float_array(target_state.rotation).tolist()
+                            }
+                        })
                     })
-                }
-                if self.augmentations is not None:
-                    item = self.augmentations(item)
 
-                item = self.transforms(item)
+                while len(obs_pairs) >= self.batch_size:
+                    batch = obs_pairs[:self.batch_size]
+                    del obs_pairs[:self.batch_size]
 
-                batch.append(item)
-                step += 1
+                    if self.augmentations is not None:
+                        batch = [self.augmentations(item) for item in batch]
 
-            collated = default_collate(batch)
-            yield collated
+                    batch = [self.transforms(item) for item in batch]
+
+                    collated = default_collate(batch)
+                    yield collated
 
     def reconfigure_scene(self, scene_id):
         self.config.defrost()
@@ -494,10 +518,9 @@ class HSimDataset(IterableDataset):
     def from_config(cls, config, transforms, augmentations=None):
         dataset_params = config.params
         return cls(
-            config_file_path=dataset_params.config_file_path,
-            steps_to_change_scene=dataset_params.steps_to_change_scene,
             transforms=transforms,
             augmentations=augmentations,
+            **dataset_params
         )
 
 

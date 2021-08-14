@@ -211,7 +211,7 @@ if __name__ == '__main__':
     buffer_max_num_batches = 300
     num_val_dataset_items = 6000
 
-    train_config_file_path = 'config_files/odometry/hsim/online_training_batch_buffer.yaml'
+    train_config_file_path = 'config_files/odometry/hsim/online_training_batch_buffer_v2.yaml'
     config = get_config(train_config_file_path, new_keys_allowed=True)
 
     config.defrost()
@@ -259,9 +259,10 @@ if __name__ == '__main__':
     train_dataset_transforms = make_transforms(config.train.dataset.transforms)
     train_dataset = HSimDataset(
         config_file_path=config.train.dataset.params.config_file_path,
-        steps_to_change_scene=config.train.dataset.params.steps_to_change_scene,
         transforms=train_dataset_transforms,
-        batch_size=dataset_batch_size
+        batch_size=dataset_batch_size,
+        pairs_frac_per_episode=0.25,
+        n_episodes_per_scene=3
     )
     train_loader = DataLoader(
         train_dataset,
