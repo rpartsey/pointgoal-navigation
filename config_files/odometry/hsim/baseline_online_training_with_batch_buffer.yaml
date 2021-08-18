@@ -1,4 +1,4 @@
-experiment_name: online_training_batch_buffer_v3
+experiment_name: baseline_online_training_with_batch_buffer
 log_dir: ../experiments/hsim
 epochs: 100
 device: cuda:0

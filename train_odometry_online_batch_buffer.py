@@ -211,7 +211,7 @@ if __name__ == '__main__':
     buffer_max_num_batches = 300
     num_val_dataset_items = 6000
 
-    train_config_file_path = 'config_files/odometry/hsim/online_training_batch_buffer_v2.yaml'
+    train_config_file_path = 'config_files/odometry/hsim/baseline_online_training_with_batch_buffer.yaml'
     config = get_config(train_config_file_path, new_keys_allowed=True)
 
     config.defrost()
