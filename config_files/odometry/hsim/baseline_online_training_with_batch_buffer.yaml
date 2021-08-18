@@ -31,15 +31,22 @@ transforms:
     params: null
 
 train:
+  batch_buffer:
+    params:
+      buffer_max_num_batches: 300
+      batch_size: 16
   dataset:
     type: HSimDataset
     params:
       config_file_path: config_files/challenge_pointnav2021.local.rgbd.yaml
+      batch_size: 16
+      pairs_frac_per_episode: 0.25
+      n_episodes_per_scene: 3
     augmentations: null
   loader:
     type: EgoDataLoader
     params:
-      batch_size: 16
+      batch_size: null
       num_workers: 4
       sampler: null
       multiprocessing_context: spawn

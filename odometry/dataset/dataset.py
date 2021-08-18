@@ -211,6 +211,11 @@ class HSimDataset(IterableDataset):
 
     def __iter__(self) -> Iterator[T_co]:
         self.config = get_config(self.config_file_path)
+        if self.local_rank is not None:
+            self.config.defrost()
+            self.config.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = self.local_rank
+            self.config.freeze()
+
         self.sim = make_sim(
             id_sim=self.config.SIMULATOR.TYPE,
             config=self.config.SIMULATOR

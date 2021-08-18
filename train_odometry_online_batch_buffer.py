@@ -1,6 +1,6 @@
 import os
-import time
 import shutil
+import argparse
 import multiprocessing as mp
 from collections import defaultdict
 
@@ -205,14 +205,32 @@ class ShuffleBatchBuffer:
                 self.buffer.append(x)
 
 
-if __name__ == '__main__':
-    dataset_batch_size = 16
-    dataloader_batch_size = 16
-    buffer_max_num_batches = 300
-    num_val_dataset_items = 6000
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--config-file',
+        required=True,
+        type=str,
+        help='path to the configuration file'
+    )
+    parser.add_argument(
+        '--num-val-dataset-items',
+        required=False,
+        type=int,
+        default=None,
+        help='number of items to form a dataset'
+    )
+    args = parser.parse_args()
 
-    train_config_file_path = 'config_files/odometry/hsim/baseline_online_training_with_batch_buffer.yaml'
-    config = get_config(train_config_file_path, new_keys_allowed=True)
+    return args
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    config_path = args.config_file
+    num_val_dataset_items = args.num_val_dataset_items
+
+    config = get_config(config_path, new_keys_allowed=True)
 
     config.defrost()
     config.experiment_dir = os.path.join(config.log_dir, config.experiment_name)
@@ -220,14 +238,6 @@ if __name__ == '__main__':
     config.model.best_checkpoint_path = os.path.join(config.experiment_dir, 'best_checkpoint.pt')
     config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
-
-    config.train.dataset.params.num_points = None
-    config.train.dataset.params.invert_rotations = False
-    config.train.dataset.params.invert_collisions = False
-    config.train.dataset.params.not_use_turn_left = False
-    config.train.dataset.params.not_use_turn_right = False
-    config.train.dataset.params.not_use_move_forward = False
-    config.train.dataset.params.not_use_rgb = False
 
     config.val.dataset.params.num_points = num_val_dataset_items
     config.val.dataset.params.invert_rotations = False
@@ -256,25 +266,8 @@ if __name__ == '__main__':
     init_experiment(config)
     set_random_seed(config.seed)
 
-    train_dataset_transforms = make_transforms(config.train.dataset.transforms)
-    train_dataset = HSimDataset(
-        config_file_path=config.train.dataset.params.config_file_path,
-        transforms=train_dataset_transforms,
-        batch_size=dataset_batch_size,
-        pairs_frac_per_episode=0.25,
-        n_episodes_per_scene=3
-    )
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=None,
-        num_workers=config.train.loader.params.num_workers,
-        multiprocessing_context=mp.get_context('spawn')
-    )
-    shuffle_batch_buffer = ShuffleBatchBuffer(
-        train_loader,
-        max_num_batches=buffer_max_num_batches,
-        batch_size=dataloader_batch_size
-    )
+    train_dataset = make_dataset(config.train.dataset)
+    train_loader = make_data_loader(config.train.loader, train_dataset)
     train_metric_fns = make_metrics(config.train.metrics) if config.train.metrics else []
 
     val_dataset = make_dataset(config.val.dataset)
@@ -305,6 +298,12 @@ if __name__ == '__main__':
     num_items = 0
     num_items_per_action = defaultdict(lambda: 0)
     train_metrics = defaultdict(lambda: 0)
+
+    shuffle_batch_buffer = ShuffleBatchBuffer(
+        train_loader,
+        max_num_batches=config.train.batch_buffer.params.buffer_max_num_batches,
+        batch_size=config.train.batch_buffer.params.batch_size
+    )
 
     for batch_index, data in enumerate(shuffle_batch_buffer):
         data, embeddings, target = transform_batch(data)
