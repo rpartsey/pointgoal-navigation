@@ -1,5 +1,4 @@
 import copy
-import gzip
 import json
 import itertools
 from collections import defaultdict
@@ -20,7 +19,7 @@ from habitat import get_config, make_dataset
 from habitat.sims import make_sim
 from habitat.tasks.nav.shortest_path_follower import ShortestPathFollower
 from habitat.datasets.pointnav.pointnav_generator import generate_pointnav_episode
-from habitat.tasks.nav.nav import merge_sim_episode_config, NavigationEpisode
+from habitat.tasks.nav.nav import merge_sim_episode_config
 
 from odometry.dataset.utils import get_relative_egomotion
 from odometry.utils import set_random_seed
@@ -211,11 +210,11 @@ class HSimDataset(IterableDataset):
         self.pairs_frac_per_episode = pairs_frac_per_episode
         self.n_episodes_per_scene = n_episodes_per_scene
         self.seed = seed
-        self.torch_loader_worker_id = None
+        self.torch_loader_worker_info = None
 
     def __iter__(self) -> Iterator[T_co]:
-        self.torch_loader_worker_id = torch.utils.data.get_worker_info().id
-        self.seed += self.torch_loader_worker_id
+        self.torch_loader_worker_info = torch.utils.data.get_worker_info()
+        self.seed += self.torch_loader_worker_info.id
 
         self.config = get_config(self.config_file_path)
         if self.local_rank is not None:
@@ -241,10 +240,9 @@ class HSimDataset(IterableDataset):
         )
         scene_ids = sorted(copy.deepcopy(dataset.scene_ids))
         del dataset
-        # uniformly split scenes across torch DataLoader workers:
-        self.split_scenes(num_scenes=len(scene_ids))
 
-        scene_id_gen = itertools.cycle(scene_ids[self.start:self.stop])
+        scene_ids = self.get_loader_worker_split(scene_ids)
+        scene_id_gen = itertools.cycle(scene_ids)
         episode_gen = generate_pointnav_episode(
             sim=self.sim,
             is_gen_shortest_path=False
@@ -341,35 +339,32 @@ class HSimDataset(IterableDataset):
         self.config.freeze()
         self.sim.reconfigure(self.config.SIMULATOR)
 
-    @staticmethod
-    def split_workload(start, stop, worker_id, num_workers):
-        per_worker = int(np.ceil((stop - start) / num_workers))
-        iter_start = worker_id * per_worker
-        iter_stop = min(iter_start + per_worker, stop)
-
-        return iter_start, iter_stop
-
-    def split_scenes(self, num_scenes):
-        if self.local_rank is None:
-            distrib_worker_start, distrib_worker_stop = (0, num_scenes)
-        else:
+    def get_loader_worker_split(self, scene_ids):
+        if self.local_rank is not None:
             distrib_worker_start, distrib_worker_stop = self.split_workload(
-                start=0,
-                stop=num_scenes,
+                num_items=len(scene_ids),
                 worker_id=self.local_rank,
                 num_workers=self.world_size
             )
+            scene_ids = scene_ids[distrib_worker_start:distrib_worker_stop]
 
-        worker_info = torch.utils.data.get_worker_info()
-        if worker_info is None:
-            self.start, self.stop = (distrib_worker_start, distrib_worker_stop)
-        else:
-            self.start, self.stop = self.split_workload(
-                start=distrib_worker_start,
-                stop=distrib_worker_stop,
-                worker_id=worker_info.id,
-                num_workers=worker_info.num_workers
+        if self.torch_loader_worker_info is not None:
+            loader_worker_start, loader_worker_stop = self.split_workload(
+                num_items=len(scene_ids),
+                worker_id=self.torch_loader_worker_info.id,
+                num_workers=self.torch_loader_worker_info.num_workers
             )
+            scene_ids = scene_ids[loader_worker_start:loader_worker_stop]
+
+        return scene_ids
+
+    @staticmethod
+    def split_workload(num_items, worker_id, num_workers):
+        per_worker = int(np.ceil(num_items / num_workers))
+        iter_start = worker_id * per_worker
+        iter_stop = min(iter_start + per_worker, num_items)
+
+        return iter_start, iter_stop
 
     @classmethod
     def from_config(cls, config, transforms, augmentations=None):
