@@ -23,6 +23,7 @@ from habitat.datasets.pointnav.pointnav_generator import generate_pointnav_episo
 from habitat.tasks.nav.nav import merge_sim_episode_config, NavigationEpisode
 
 from odometry.dataset.utils import get_relative_egomotion
+from odometry.utils import set_random_seed
 
 
 class EgoMotionDataset(Dataset):
@@ -189,6 +190,7 @@ class HSimDataset(IterableDataset):
             self,
             config_file_path,
             transforms,
+            seed,
             augmentations=None,
             batch_size=None,
             local_rank=None,
@@ -208,13 +210,21 @@ class HSimDataset(IterableDataset):
         self.batch_size = batch_size
         self.pairs_frac_per_episode = pairs_frac_per_episode
         self.n_episodes_per_scene = n_episodes_per_scene
+        self.seed = seed
+        self.torch_loader_worker_id = None
 
     def __iter__(self) -> Iterator[T_co]:
+        self.torch_loader_worker_id = torch.utils.data.get_worker_info().id
+        self.seed += self.torch_loader_worker_id
+
         self.config = get_config(self.config_file_path)
         if self.local_rank is not None:
             self.config.defrost()
+            self.config.SEED = self.seed
             self.config.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = self.local_rank
             self.config.freeze()
+
+        set_random_seed(self.seed)
 
         self.sim = make_sim(
             id_sim=self.config.SIMULATOR.TYPE,
@@ -229,7 +239,7 @@ class HSimDataset(IterableDataset):
             id_dataset=self.config.DATASET.TYPE,
             config=self.config.DATASET
         )
-        scene_ids = copy.deepcopy(dataset.scene_ids)
+        scene_ids = sorted(copy.deepcopy(dataset.scene_ids))
         del dataset
         # uniformly split scenes across torch DataLoader workers:
         self.split_scenes(num_scenes=len(scene_ids))

@@ -239,6 +239,8 @@ if __name__ == '__main__':
     config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
 
+    config.train.dataset.params.seed = config.seed
+
     config.val.dataset.params.num_points = num_val_dataset_items
     config.val.dataset.params.invert_rotations = False
     config.val.dataset.params.invert_collisions = False
@@ -247,6 +249,9 @@ if __name__ == '__main__':
     config.val.dataset.params.not_use_move_forward = False
     config.val.dataset.params.not_use_rgb = False
     config.freeze()
+
+    init_experiment(config)
+    set_random_seed(config.seed)
 
     # init distributed if run with torch.distributed.launch
     is_distributed = get_distrib_size()[2] > 1
@@ -257,14 +262,15 @@ if __name__ == '__main__':
 
         config.defrost()
         config.device = local_rank
+        config.seed += local_rank * config.train.loader.params.num_workers
+        config.train.dataset.params.seed = config.seed
         config.train.dataset.params.local_rank = local_rank
         config.train.dataset.params.world_size = torch.distributed.get_world_size()
         config.train.loader.is_distributed = False
         config.val.loader.is_distributed = True
         config.freeze()
 
-    init_experiment(config)
-    set_random_seed(config.seed)
+        set_random_seed(config.seed)
 
     train_dataset = make_dataset(config.train.dataset)
     train_loader = make_data_loader(config.train.loader, train_dataset)
