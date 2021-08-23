@@ -212,11 +212,18 @@ class HSimDataset(IterableDataset):
         self.seed = seed
         self.torch_loader_worker_info = None
 
+        self.config = get_config(self.config_file_path)
+        dataset = make_dataset(
+            id_dataset=self.config.DATASET.TYPE,
+            config=self.config.DATASET
+        )
+        self.scene_ids = sorted(copy.deepcopy(dataset.scene_ids))
+        del dataset
+
     def __iter__(self) -> Iterator[T_co]:
         self.torch_loader_worker_info = torch.utils.data.get_worker_info()
         self.seed += self.torch_loader_worker_info.id
 
-        self.config = get_config(self.config_file_path)
         if self.local_rank is not None:
             self.config.defrost()
             self.config.SEED = self.seed
@@ -234,14 +241,8 @@ class HSimDataset(IterableDataset):
             goal_radius=self.config.TASK.SUCCESS.SUCCESS_DISTANCE,
             return_one_hot=False
         )
-        dataset = make_dataset(
-            id_dataset=self.config.DATASET.TYPE,
-            config=self.config.DATASET
-        )
-        scene_ids = sorted(copy.deepcopy(dataset.scene_ids))
-        del dataset
 
-        scene_ids = self.get_loader_worker_split(scene_ids)
+        scene_ids = self.get_loader_worker_split(self.scene_ids)
         scene_id_gen = itertools.cycle(scene_ids)
         episode_gen = generate_pointnav_episode(
             sim=self.sim,

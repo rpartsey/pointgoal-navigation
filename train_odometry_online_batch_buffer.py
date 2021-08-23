@@ -1,20 +1,17 @@
 import os
 import shutil
 import argparse
-import multiprocessing as mp
 from collections import defaultdict
 
 import numpy as np
 from tqdm import tqdm
 import torch
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from habitat_baselines.common.tensor_dict import TensorDict
 from habitat_baselines.rl.ddppo.algo.ddp_utils import get_distrib_size, init_distrib_slurm, rank0_only
 
-from odometry.dataset import make_transforms, make_dataset, make_data_loader
-from odometry.dataset.dataset import HSimDataset
+from odometry.dataset import make_dataset, make_data_loader
 from odometry.config.default import get_config
 from odometry.losses import make_loss
 from odometry.models import make_model
@@ -48,7 +45,7 @@ def init_experiment(config):
         def ask():
             return input(f'Experiment "{config.experiment_name}" already exists. Delete (y/n)?')
 
-        answer = 'y'  # ask()
+        answer = ask()
         while answer not in ('y', 'n'):
             answer = ask()
 
@@ -250,9 +247,6 @@ if __name__ == '__main__':
     config.val.dataset.params.not_use_rgb = False
     config.freeze()
 
-    init_experiment(config)
-    set_random_seed(config.seed)
-
     # init distributed if run with torch.distributed.launch
     is_distributed = get_distrib_size()[2] > 1
     if is_distributed:
@@ -270,7 +264,8 @@ if __name__ == '__main__':
         config.val.loader.is_distributed = True
         config.freeze()
 
-        set_random_seed(config.seed)
+    init_experiment(config)
+    set_random_seed(config.seed)
 
     train_dataset = make_dataset(config.train.dataset)
     train_loader = make_data_loader(config.train.loader, train_dataset)
@@ -391,15 +386,4 @@ if __name__ == '__main__':
     if rank0_only() and config.model.save:
         torch.save(model.state_dict(), config.model.last_checkpoint_path)
         print('Saved last model checkpoint to disk.')
-    # for batch_index, data in enumerate(shuffle_batch_buffer):
-    #     data, embeddings, target = transform_batch(data)
-    #
-    #     data = data.float().to(device)
-    #     target = target.float().to(device)
-    #     for k, v in embeddings.items():
-    #         embeddings[k] = v.to(device)
-    #
-    #     output = model(data, **embeddings)
-    #     loss, loss_components = loss_f(output, target)
-    #
-    #     print(batch_index)
+

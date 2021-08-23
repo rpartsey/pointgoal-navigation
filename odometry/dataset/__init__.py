@@ -49,7 +49,11 @@ def make_dataset(dataset_config):
 
 
 def make_data_loader(loader_config, dataset):
-    sampler = DistributedSampler(dataset) if hasattr(loader_config, 'is_distributed') else make_sampler(loader_config, dataset)
+    if hasattr(loader_config, 'is_distributed') and loader_config.is_distributed:
+        sampler = DistributedSampler(dataset)
+        loader_config.params.pop('sampler', None)
+    else:
+        sampler = make_sampler(loader_config, dataset)
 
     data_loader_type = getattr(dataset_module, loader_config.type)
     loader = data_loader_type.from_config(
