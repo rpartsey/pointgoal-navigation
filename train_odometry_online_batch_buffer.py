@@ -377,7 +377,7 @@ if __name__ == '__main__':
 
             model.train()
 
-            if epoch > config.epochs:
+            if epoch == config.epochs:
                 break
 
     train_writer.close()
