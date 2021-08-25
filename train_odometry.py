@@ -235,7 +235,7 @@ def main():
     config.model.last_checkpoint_path = os.path.join(config.experiment_dir, 'last_checkpoint.pt')
     config.config_save_path = os.path.join(config.experiment_dir, 'config.yaml')
 
-    config.train.dataset.params.num_points = args.num_dataset_items
+    config.train.dataset.params.num_points = 96000
     config.train.dataset.params.invert_rotations = args.invert_rotations_train
     config.train.dataset.params.invert_collisions = args.invert_collisions
     config.train.dataset.params.not_use_turn_left = args.not_use_turn_left
