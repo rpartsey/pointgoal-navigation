@@ -1,0 +1,113 @@
+experiment_name: perf_online_2distrib_4dataloader_workers_300episodes_per_scene
+log_dir: ../experiments/hsim/performance
+epochs: 10
+device: cuda:0
+seed: 1
+distrib_backend: NCCL
+compute_metrics_per_action: True
+batches_per_epoch: 3000
+shuffle_train_batch: null
+
+transforms:
+  ConvertToTensor:
+    rank: 1
+    params: null
+#  DiscretizeDepth:
+#    rank: 2
+#    params:
+#      n_channels: 5
+#      min_depth: 0
+#      max_depth: 0.5
+  PermuteChannels:
+    rank: 3
+    params: null
+  Resize:
+    rank: 4
+    params:
+      size: [180, 320]
+      interpolation: BILINEAR
+  Normalize:
+    rank: 5
+    params: null
+
+train:
+  batch_buffer:
+    params:
+      buffer_max_num_batches: 200
+      batch_size: 16
+  dataset:
+    type: HSimDataset
+    params:
+      config_file_path: config_files/challenge_pointnav2021.local.rgbd.yaml
+      batch_size: 16
+      pairs_frac_per_episode: 0.2
+      n_episodes_per_scene: 300
+    augmentations: null
+  loader:
+    type: EgoDataLoader
+    params:
+      batch_size: null
+      num_workers: 4
+      sampler: null
+      multiprocessing_context: spawn
+  metrics:
+    - translation_mae
+    - rotation_mae
+
+val:
+  dataset:
+    type: EgoMotionDataset
+    params:
+      data_root: /home/rpartsey/data/habitat/vo_datasets/noisy
+      environment_dataset: gibson
+      split: val
+      invert_rotations: False
+    augmentations: null
+  loader:
+    type: EgoDataLoader
+    params:
+      batch_size: 16
+      num_workers: 8
+      shuffle: False
+      sampler: null
+  metrics:
+    - translation_mae
+    - rotation_mae
+
+model:
+  type: VONetV3
+  save: True
+  params:
+    encoder:
+      type: resnet18
+      params:
+        depth: 5
+        weights: null
+        in_channels: 8
+        in_height: 180
+        in_width: 320
+        base_planes: 32
+        ngroups: 16 # base_planes // 2
+        num_compression_channels: 35 # 2100 - flat size
+    fc:
+      params:
+        hidden_size: [512, 512]
+        output_size: 4
+        p_dropout: 0.2
+    collision_embedding_size: 0
+    action_embedding_size: 8
+
+loss:
+  type: PoseLossV2
+  params:
+    alpha: 1.
+    beta: 1.
+
+optim:
+  type: Adam
+  params:
+    lr: 0.0001
+
+stopper:
+  params:
+    patience: 50
