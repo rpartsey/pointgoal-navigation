@@ -20,6 +20,12 @@ class OnlineDatasetTrainer(BaseTrainer):
             batch_size=self.config.train.batch_buffer.params.batch_size
         )
 
+    def update_config(self):
+        BaseTrainer.update_config(self)
+        self.config.defrost()
+        self.config.train.dataset.params.seed = self.config.seed
+        self.config.freeze()
+
     def update_distrib_config(self, local_rank):
         self.config.defrost()
         self.config.device = local_rank

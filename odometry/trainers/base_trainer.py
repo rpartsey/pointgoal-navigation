@@ -64,6 +64,15 @@ class BaseTrainer:
             print("Initialized with {} workers".format(torch.distributed.get_world_size()))
         self.update_distrib_config(local_rank)
 
+    def update_config(self):
+        self.config.defrost()
+        self.config.experiment_dir = os.path.join(self.config.log_dir, self.config.experiment_name)
+        self.config.tb_dir = os.path.join(self.config.experiment_dir, 'tb')
+        self.config.model.best_checkpoint_path = os.path.join(self.config.experiment_dir, 'best_checkpoint.pt')
+        self.config.model.last_checkpoint_path = os.path.join(self.config.experiment_dir, 'last_checkpoint.pt')
+        self.config.config_save_path = os.path.join(self.config.experiment_dir, 'config.yaml')
+        self.config.freeze()
+
     def update_distrib_config(self, local_rank):
         raise NotImplemented
 
@@ -109,6 +118,7 @@ class BaseTrainer:
         raise NotImplemented
 
     def train(self):
+        self.update_config()
         if self.is_distributed():
             self.init_distrib()
 
