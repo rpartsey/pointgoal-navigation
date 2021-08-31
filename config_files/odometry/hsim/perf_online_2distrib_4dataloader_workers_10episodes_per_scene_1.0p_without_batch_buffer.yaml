@@ -1,0 +1,118 @@
+experiment_name: perf_online_2distrib_4dataloader_workers_10episodes_per_scene_1.0p_without_batch_buffer
+log_dir: ../experiments/hsim/performance
+epochs: 10
+device: cuda:0
+seed: 1
+distrib_backend: NCCL
+compute_metrics_per_action: True
+batches_per_epoch: 3000
+
+trainer:
+  type: OnlineDatasetTrainer
+
+transforms:
+  ConvertToTensor:
+    rank: 1
+    params: null
+#  DiscretizeDepth:
+#    rank: 2
+#    params:
+#      n_channels: 5
+#      min_depth: 0
+#      max_depth: 0.5
+  PermuteChannels:
+    rank: 3
+    params: null
+  Resize:
+    rank: 4
+    params:
+      size: [180, 320]
+      interpolation: BILINEAR
+  Normalize:
+    rank: 5
+    params: null
+
+train:
+  batch_buffer: null
+  dataset:
+    type: HSimDataset
+    params:
+      config_file_path: config_files/challenge_pointnav2021.local.rgbd.yaml
+      batch_size: 16
+      pairs_frac_per_episode: 1.0
+      n_episodes_per_scene: 10
+    augmentations: null
+  loader:
+    type: EgoDataLoader
+    params:
+      batch_size: null
+      num_workers: 4
+      sampler: null
+      multiprocessing_context: spawn
+  metrics:
+    - translation_mae
+    - rotation_mae
+
+val:
+  dataset:
+    type: EgoMotionDataset
+    params:
+      data_root: /home/rpartsey/data/habitat/vo_datasets/noisy
+      environment_dataset: gibson
+      split: val
+      invert_rotations: False
+      num_points: null
+      not_use_turn_left: False
+      not_use_turn_right: False
+      not_use_move_forward: False
+      invert_collisions: False
+      not_use_rgb: False
+    augmentations: null
+  loader:
+    type: EgoDataLoader
+    params:
+      batch_size: 16
+      num_workers: 8
+      shuffle: False
+      sampler: null
+  metrics:
+    - translation_mae
+    - rotation_mae
+
+model:
+  type: VONetV3
+  save: True
+  params:
+    encoder:
+      type: resnet18
+      params:
+        depth: 5
+        weights: null
+        in_channels: 8
+        in_height: 180
+        in_width: 320
+        base_planes: 32
+        ngroups: 16 # base_planes // 2
+        num_compression_channels: 35 # 2100 - flat size
+    fc:
+      params:
+        hidden_size: [512, 512]
+        output_size: 4
+        p_dropout: 0.2
+    collision_embedding_size: 0
+    action_embedding_size: 8
+
+loss:
+  type: PoseLossV2
+  params:
+    alpha: 1.
+    beta: 1.
+
+optim:
+  type: Adam
+  params:
+    lr: 0.0001
+
+stopper:
+  params:
+    patience: 50
