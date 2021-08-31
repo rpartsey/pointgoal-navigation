@@ -14,11 +14,12 @@ from ..metrics import action_id_to_action_name
 class OnlineDatasetTrainer(BaseTrainer):
     def init_trainer(self):
         BaseTrainer.init_trainer(self)
-        self.train_loader = ShuffleBatchBuffer(
-            self.train_loader,
-            max_num_batches=self.config.train.batch_buffer.params.buffer_max_num_batches,
-            batch_size=self.config.train.batch_buffer.params.batch_size
-        )
+        if self.config.train.batch_buffer is not None:
+            self.train_loader = ShuffleBatchBuffer(
+                self.train_loader,
+                max_num_batches=self.config.train.batch_buffer.params.buffer_max_num_batches,
+                batch_size=self.config.train.batch_buffer.params.batch_size
+            )
 
     def update_config(self):
         BaseTrainer.update_config(self)
