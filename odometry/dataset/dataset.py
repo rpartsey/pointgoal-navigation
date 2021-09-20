@@ -5,6 +5,7 @@ from collections import defaultdict
 from glob import glob
 from typing import Iterator
 import multiprocessing as mp
+import cv2
 
 import quaternion
 import numpy as np
@@ -123,11 +124,17 @@ class EgoMotionDataset(Dataset):
 
         return meta['action'][0]
 
+    def read_rgb(self, path):
+        return np.asarray(Image.open(path).convert('RGB'))
+
+    def read_depth(self, path):
+        return np.load(path)
+
     def __getitem__(self, index):
         meta = self.meta_data[index]
 
-        source_depth = np.load(meta['source_depth_map_path'])
-        target_depth = np.load(meta['target_depth_map_path'])
+        source_depth = self.read_depth(meta['source_depth_map_path'])
+        target_depth = self.read_depth(meta['target_depth_map_path'])
 
         item = {
             'source_depth': source_depth,
@@ -137,10 +144,8 @@ class EgoMotionDataset(Dataset):
             'egomotion': get_relative_egomotion(meta),
         }
         if not self.not_use_rgb:
-            source_rgb = Image.open(meta['source_frame_path']).convert('RGB')
-            target_rgb = Image.open(meta['target_frame_path']).convert('RGB')
-            item['source_rgb'] = np.asarray(source_rgb)
-            item['target_rgb'] = np.asarray(target_rgb)
+            item['source_rgb'] = self.read_rgb(meta['source_frame_path'])
+            item['target_rgb'] = self.read_rgb(meta['target_frame_path'])
 
         if self.augmentations is not None:
             item = self.augmentations(item)
@@ -175,6 +180,42 @@ class EgoMotionDataset(Dataset):
             invert_collisions=dataset_params.invert_collisions,
             not_use_rgb=dataset_params.not_use_rgb
         )
+
+
+class EgoMotionDatasetV2(EgoMotionDataset):
+    """depth_npy_rgb_jpg"""
+
+    def read_depth(self, path):
+        return np.expand_dims(np.load(path), axis=2)
+
+
+class EgoMotionDatasetV3(EgoMotionDataset):
+    """depth_npy_rgb_png"""
+
+    def read_depth(self, path):
+        return np.expand_dims(np.load(path), axis=2)
+
+    def read_rgb(self, path):
+        return cv2.imread(path, cv2.IMREAD_COLOR)
+
+
+class EgoMotionDatasetV4(EgoMotionDataset):
+    """depth_png_rgb_jpg"""
+
+    def read_depth(self, path):
+        scale = np.iinfo(np.uint16).max
+        return np.expand_dims(cv2.imread(path, cv2.IMREAD_UNCHANGED), axis=2).astype(np.float32) / scale
+
+
+class EgoMotionDatasetV5(EgoMotionDataset):
+    """depth_png_rgb_png"""
+
+    def read_depth(self, path):
+        scale = np.iinfo(np.uint16).max
+        return np.expand_dims(cv2.imread(path, cv2.IMREAD_UNCHANGED), axis=2).astype(np.float32) / scale
+
+    def read_rgb(self, path):
+        return cv2.imread(path, cv2.IMREAD_COLOR)
 
 
 class HSimDataset(IterableDataset):

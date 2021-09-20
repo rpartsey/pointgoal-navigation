@@ -44,12 +44,14 @@ def get_config(
     if opts:
         config.merge_from_list(opts)
 
-    if hasattr(config, 'transforms'):
-        transforms = config.pop('transforms')
-        config.train.dataset.transforms = transforms
-        config.val.dataset.transforms = transforms
-        if hasattr(config, 'train_val'):
-            config.train_val.dataset.transforms = transforms
+    if hasattr(config, 'train_transforms'):
+        config.train.dataset.transforms = config.pop('train_transforms')
+
+    if hasattr(config, 'val_transforms'):
+        config.val.dataset.transforms = config.pop('val_transforms')
+
+    if hasattr(config, 'train_val'):
+        config.train_val.dataset.transforms = config.pop('train_val_transforms')
 
     config.freeze()
     return config
