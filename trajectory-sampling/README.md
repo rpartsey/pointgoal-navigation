@@ -36,9 +36,8 @@ Example:
   --base-task-config-file ../config_files/challenge_pointnav2021.local.rgbd.yaml \
   --dataset gibson \
   --split train \
-  --gibson-votes-csv data/datasets/pointnav/gibson/v2/gibson_quality_ratings.csv \
-  --num-episodes-per-scene 2500 \  
-  --gpu-ids 0 \
+  --num-episodes-per-scene 2000 \
+  --gpu-ids 0 1 \
   --num-processes-per-gpu 4 \
   --pts-frac-per-episode 0.2
 ```
