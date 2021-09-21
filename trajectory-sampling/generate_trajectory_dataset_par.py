@@ -2,6 +2,7 @@ import copy
 import multiprocessing
 import os
 import json
+import gzip
 import random
 import argparse
 import subprocess
@@ -396,10 +397,10 @@ def collect_scene_dataset(args, config):
             args.data_dir,
             args.split,
             'json',
-            "{}.json".format(scene_name)
+            "{}.json.gz".format(scene_name)
         )
         json_data = {"dataset": dataset}
-        with open(scene_json_path, "w") as f:
+        with gzip.open(scene_json_path, 'wt') as f:
             json.dump(json_data, f)
 
     return scene_name, len(scene_name_to_dataset_map[scene_name])
