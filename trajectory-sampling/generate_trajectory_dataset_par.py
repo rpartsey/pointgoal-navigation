@@ -7,6 +7,7 @@ import argparse
 import subprocess
 from pprint import pprint
 
+import cv2
 import quaternion
 import numpy as np
 from PIL import Image
@@ -154,14 +155,14 @@ def get_frame_paths(
             args.split,
             "rgb",
             scene_name,
-            "{:03d}_{:03d}_{:s}_{:s}.jpg".format(int(episode_id), idx, "_".join(action), "source")
+            "{:03d}_{:03d}_{:s}_{:s}.png".format(int(episode_id), idx, "_".join(action), "source")
         ),
         os.path.join(
             args.data_dir,
             args.split,
             "rgb",
             scene_name,
-            "{:03d}_{:03d}_{:s}_{:s}.jpg".format(int(episode_id), idx, "_".join(action), "target")
+            "{:03d}_{:03d}_{:s}_{:s}.png".format(int(episode_id), idx, "_".join(action), "target")
         ),
     )
 
@@ -179,14 +180,14 @@ def get_depth_map_paths(
             args.split,
             "depth",
             scene_name,
-            "{:03d}_{:03d}_{:s}_{:s}_depth.npy".format(int(episode_id), idx, "_".join(action), "source")
+            "{:03d}_{:03d}_{:s}_{:s}_depth.png".format(int(episode_id), idx, "_".join(action), "source")
         ),
         os.path.join(
             args.data_dir,
             args.split,
             "depth",
             scene_name,
-            "{:03d}_{:03d}_{:s}_{:s}_depth.npy".format(int(episode_id), idx, "_".join(action), "target")
+            "{:03d}_{:03d}_{:s}_{:s}_depth.png".format(int(episode_id), idx, "_".join(action), "target")
         ),
     )
 
@@ -363,10 +364,25 @@ def collect_scene_dataset(args, config):
                 ).tolist(),
             }
 
-            Image.fromarray(frame_s).save(data["source_frame_path"])
-            Image.fromarray(frame_t).save(data["target_frame_path"])
-            np.save(data["source_depth_map_path"], depth_s)
-            np.save(data["target_depth_map_path"], depth_t)
+            dest_size = (320, 180)
+
+            frame_s_resized = cv2.resize(frame_s, dest_size, interpolation=cv2.INTER_LINEAR)
+            frame_t_resized = cv2.resize(frame_t, dest_size, interpolation=cv2.INTER_LINEAR)
+
+            frame_s_resized_bgr = cv2.cvtColor(frame_s_resized, cv2.COLOR_RGB2BGR)
+            frame_t_resized_bgr = cv2.cvtColor(frame_t_resized, cv2.COLOR_RGB2BGR)
+
+            cv2.imwrite(data['source_frame_path'], frame_s_resized_bgr)
+            cv2.imwrite(data['target_frame_path'], frame_t_resized_bgr)
+
+            depth_s_resized = cv2.resize(depth_s, dest_size, interpolation=cv2.INTER_LINEAR)
+            depth_t_resized = cv2.resize(depth_t, dest_size, interpolation=cv2.INTER_LINEAR)
+
+            depth_s_resized_16bit = (depth_s_resized.astype(np.float32) * np.iinfo(np.uint16).max).astype(np.uint16)
+            depth_t_resized_16bit = (depth_t_resized.astype(np.float32) * np.iinfo(np.uint16).max).astype(np.uint16)
+
+            cv2.imwrite(data['source_depth_map_path'], depth_s_resized_16bit)
+            cv2.imwrite(data['target_depth_map_path'], depth_t_resized_16bit)
 
             data_pts_for_curr_episode.append(data)
 
