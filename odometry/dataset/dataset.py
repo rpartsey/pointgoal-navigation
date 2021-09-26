@@ -8,6 +8,7 @@ import multiprocessing as mp
 
 import quaternion
 import numpy as np
+import cv2
 from PIL import Image
 
 import torch
@@ -126,8 +127,8 @@ class EgoMotionDataset(Dataset):
     def __getitem__(self, index):
         meta = self.meta_data[index]
 
-        source_depth = np.load(meta['source_depth_map_path'])
-        target_depth = np.load(meta['target_depth_map_path'])
+        source_depth = self.read_depth(meta['source_depth_map_path'])
+        target_depth = self.read_depth(meta['target_depth_map_path'])
 
         item = {
             'source_depth': source_depth,
@@ -137,10 +138,8 @@ class EgoMotionDataset(Dataset):
             'egomotion': get_relative_egomotion(meta),
         }
         if not self.not_use_rgb:
-            source_rgb = Image.open(meta['source_frame_path']).convert('RGB')
-            target_rgb = Image.open(meta['target_frame_path']).convert('RGB')
-            item['source_rgb'] = np.asarray(source_rgb)
-            item['target_rgb'] = np.asarray(target_rgb)
+            item['source_rgb'] = self.read_rgb(meta['source_frame_path'])
+            item['target_rgb'] = self.read_rgb(meta['target_frame_path'])
 
         if self.augmentations is not None:
             item = self.augmentations(item)
@@ -151,6 +150,14 @@ class EgoMotionDataset(Dataset):
 
     def __len__(self):
         return self.num_dataset_points
+
+    @staticmethod
+    def read_rgb(path):
+        return np.asarray(Image.open(path).convert('RGB'))
+
+    @staticmethod
+    def read_depth(path):
+        return np.load(path)
 
     @staticmethod
     def _swap_values(item, k1, k2):
@@ -175,6 +182,17 @@ class EgoMotionDataset(Dataset):
             invert_collisions=dataset_params.invert_collisions,
             not_use_rgb=dataset_params.not_use_rgb
         )
+
+
+class EgoMotionDatasetResized(EgoMotionDataset):
+    @staticmethod
+    def read_depth(path):
+        scale = np.iinfo(np.uint16).max
+        return np.expand_dims(cv2.imread(path, cv2.IMREAD_UNCHANGED), axis=2).astype(np.float32) / scale
+
+    @staticmethod
+    def read_rgb(path):
+        return cv2.cvtColor(cv2.imread(path, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
 
 
 class HSimDataset(IterableDataset):
