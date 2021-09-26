@@ -1,4 +1,5 @@
 import copy
+import gzip
 import json
 import itertools
 from collections import defaultdict
@@ -67,19 +68,27 @@ class EgoMotionDataset(Dataset):
         self.not_use_turn_right = not_use_turn_right
         self.not_use_move_forward = not_use_move_forward
         self.not_use_rgb = not_use_rgb
-        self.jsons = self._load_jsons()
+        self.jsons = self._load_metadata()
         self.invert_collisions = invert_collisions
         if invert_rotations:
             self._add_inverse_rotations()
         self.num_dataset_points = num_points or len(self.jsons)
-        self.meta_data = self.jsons[:self.num_dataset_points]
+        self.metadata = self.jsons[:self.num_dataset_points]
 
-    def _load_jsons(self):
+    def _get_metadata_file_paths(self):
+        return glob(f'{self.data_root}/{self.environment_dataset}/{self.split}/*.json')
+
+    def _load_metadata_file(self, path):
+        with open(path, 'r') as file:
+            content = json.load(file)
+
+        return content
+
+    def _load_metadata(self):
         data = []
 
-        for file_path in glob(f'{self.data_root}/{self.environment_dataset}/{self.split}/*.json'):
-            with open(file_path, 'r') as file:
-                scene_content = json.load(file)
+        for file_path in self._get_metadata_file_paths():
+            scene_content = self._load_metadata_file(file_path)
 
             scene_dataset = scene_content['dataset']
             if self.not_use_turn_left:
@@ -120,12 +129,12 @@ class EgoMotionDataset(Dataset):
         self.jsons = new_jsons
 
     def get_label(self, index):
-        meta = self.meta_data[index]
+        meta = self.metadata[index]
 
         return meta['action'][0]
 
     def __getitem__(self, index):
-        meta = self.meta_data[index]
+        meta = self.metadata[index]
 
         source_depth = self.read_depth(meta['source_depth_map_path'])
         target_depth = self.read_depth(meta['target_depth_map_path'])
@@ -185,6 +194,15 @@ class EgoMotionDataset(Dataset):
 
 
 class EgoMotionDatasetResized(EgoMotionDataset):
+    def _get_metadata_file_paths(self):
+        return glob(f'{self.data_root}/{self.environment_dataset}/{self.split}/json/*.json.gz')
+
+    def _load_metadata_file(self, path):
+        with gzip.open(path, 'rt') as file:
+            content = json.loads(file.read())
+
+        return content
+
     @staticmethod
     def read_depth(path):
         scale = np.iinfo(np.uint16).max

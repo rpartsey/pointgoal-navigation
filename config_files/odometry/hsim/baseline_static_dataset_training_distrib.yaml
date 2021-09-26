@@ -17,7 +17,7 @@ train:
       environment_dataset: gibson
       split: train  # train_train
       invert_rotations: False
-      num_points: 500 # null
+      num_points: null
       not_use_turn_left: False
       not_use_turn_right: False
       not_use_move_forward: False
@@ -87,7 +87,7 @@ val:
       environment_dataset: gibson
       split: val
       invert_rotations: False
-      num_points: 500 # null
+      num_points: null
       not_use_turn_left: False
       not_use_turn_right: False
       not_use_move_forward: False
