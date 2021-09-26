@@ -52,7 +52,7 @@ train:
     params:
       batch_size: 16
       num_workers: 10
-      shuffle: True
+      shuffle: False
       sampler: null
   metrics:
     - translation_mae
