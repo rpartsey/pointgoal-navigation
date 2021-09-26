@@ -1,14 +1,91 @@
 from collections import defaultdict
 
+import numpy as np
 import torch
+from habitat_baselines.common.tensor_dict import TensorDict
 from tqdm import tqdm
 
 from habitat_baselines.rl.ddppo.algo.ddp_utils import rank0_only
 
-from train_odometry_online_batch_buffer import ShuffleBatchBuffer
 from .base_trainer import BaseTrainer
 from ..utils import transform_batch
 from ..metrics import action_id_to_action_name
+
+
+class BatchBuffer:
+    def __init__(self, max_num_batches, batch_size):
+        self.max_num_batches = max_num_batches
+        self.num_batches = 0
+        self.batch_size = batch_size
+        self.size = self.max_num_batches * self.batch_size
+
+        self.buffer = TensorDict()
+        self.buffer['source_depth'] = torch.from_numpy(np.zeros((self.size, 1, 180, 320), dtype=np.float32,))
+        self.buffer['target_depth'] = torch.from_numpy(np.zeros((self.size, 1, 180, 320), dtype=np.float32,))
+        self.buffer['source_rgb'] = torch.from_numpy(np.zeros((self.size, 3, 180, 320), dtype=np.float32,))
+        self.buffer['target_rgb'] = torch.from_numpy(np.zeros((self.size, 3, 180, 320), dtype=np.float32,))
+        self.buffer['action'] = torch.from_numpy(np.zeros((self.size,), dtype=np.int64,))
+        self.buffer['collision'] = torch.from_numpy(np.zeros((self.size,), dtype=np.int64,))
+
+        self.buffer['egomotion'] = TensorDict()
+        self.buffer['egomotion']['translation'] = torch.from_numpy(np.zeros((self.size, 3), dtype=np.float32,))
+        self.buffer['egomotion']['rotation'] = torch.from_numpy(np.zeros((self.size,), dtype=np.float64,))
+
+    def append(self, batch):
+        start, end = self.num_batches * self.batch_size, (self.num_batches + 1) * self.batch_size
+
+        self.buffer['source_depth'][start:end] = batch['source_depth']
+        self.buffer['target_depth'][start:end] = batch['target_depth']
+        self.buffer['source_rgb'][start:end] = batch['source_rgb']
+        self.buffer['target_rgb'][start:end] = batch['target_rgb']
+        self.buffer['action'][start:end] = batch['action']
+        self.buffer['collision'][start:end] = batch['collision']
+        self.buffer['egomotion']['translation'][start:end] = batch['egomotion']['translation']
+        self.buffer['egomotion']['rotation'][start:end] = batch['egomotion']['rotation']
+
+        self.num_batches += 1
+
+    def replace(self, batch):
+        indices = np.random.choice(self.size - 1, size=self.batch_size, replace=False)
+
+        return_batch = TensorDict()
+        return_batch['source_depth'] = self.buffer['source_depth'][indices]
+        return_batch['target_depth'] = self.buffer['target_depth'][indices]
+        return_batch['source_rgb'] = self.buffer['source_rgb'][indices]
+        return_batch['target_rgb'] = self.buffer['target_rgb'][indices]
+        return_batch['action'] = self.buffer['action'][indices]
+        return_batch['collision'] = self.buffer['collision'][indices]
+
+        return_batch['egomotion'] = TensorDict()
+        return_batch['egomotion']['translation'] = self.buffer['egomotion']['translation'][indices]
+        return_batch['egomotion']['rotation'] = self.buffer['egomotion']['rotation'][indices]
+
+        self.buffer['source_depth'][indices] = batch['source_depth']
+        self.buffer['target_depth'][indices] = batch['target_depth']
+        self.buffer['source_rgb'][indices] = batch['source_rgb']
+        self.buffer['target_rgb'][indices] = batch['target_rgb']
+        self.buffer['action'][indices] = batch['action']
+        self.buffer['collision'][indices] = batch['collision']
+        self.buffer['egomotion']['translation'][indices] = batch['egomotion']['translation']
+        self.buffer['egomotion']['rotation'][indices] = batch['egomotion']['rotation']
+
+        return return_batch
+
+    def __len__(self):
+        return self.num_batches
+
+
+class ShuffleBatchBuffer:
+    def __init__(self, dataloader, max_num_batches, batch_size):
+        self.dataloader = dataloader
+        self.buffer = BatchBuffer(max_num_batches, batch_size)
+
+    def __iter__(self):
+        for x in self.dataloader:
+            if len(self.buffer) == self.buffer.max_num_batches:
+                yield self.buffer.replace(x)
+            else:
+                self.buffer.append(x)
 
 
 class OnlineDatasetTrainer(BaseTrainer):
