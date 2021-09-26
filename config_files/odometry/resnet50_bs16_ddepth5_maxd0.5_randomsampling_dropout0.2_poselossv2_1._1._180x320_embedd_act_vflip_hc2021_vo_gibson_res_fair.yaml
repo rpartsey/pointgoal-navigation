@@ -6,36 +6,44 @@ seed: 1
 distrib_backend: NCCL
 compute_metrics_per_action: True
 
-transforms:
-  ConvertToTensor:
-    rank: 1
-    params: null
-    #  DiscretizeDepth:
-    #rank: 2
-    #params:
-    #  n_channels: 5
-    #  min_depth: 0
-    #  max_depth: 0.5
-  PermuteChannels:
-    rank: 3
-    params: null
-  Resize:
-    rank: 4
-    params:
-      size: [180, 320]
-      interpolation: BILINEAR
-  Normalize:
-    rank: 5
-    params: null
+trainer:
+  type: StaticDatasetTrainer
 
 train:
   dataset:
-    type: EgoMotionDataset
+    type: EgoMotionDatasetResized
     params:
-      data_root: /checkpoint/maksymets/data/vo_datasets_resized/ #/private/home/maksymets/pointgoal-navigation/data/vo_datasets_3m/ # /home/rpartsey/data/habitat/vo_datasets/noisy_plus_noisy_big/
+      data_root: /checkpoint/maksymets/data/vo_datasets_resized #/private/home/maksymets/pointgoal-navigation/data/vo_datasets_3m
       environment_dataset: gibson
       split: train_extra_large #train  # train_train
       invert_rotations: True
+      num_points: null
+      not_use_turn_left: False
+      not_use_turn_right: False
+      not_use_move_forward: False
+      invert_collisions: False
+      not_use_rgb: False
+    transforms:
+      ConvertToTensor:
+        rank: 1
+        params: null
+#      DiscretizeDepth:
+#        rank: 2
+#        params:
+#          n_channels: 5
+#          min_depth: 0
+#          max_depth: 0.5
+      PermuteChannels:
+        rank: 3
+        params: null
+#      Resize:
+#        rank: 4
+#        params:
+#          size: [ 180, 320 ]
+#          interpolation: BILINEAR
+      Normalize:
+        rank: 5
+        params: null
     augmentations:
       VFlip:
         params: null
@@ -79,6 +87,33 @@ val:
       environment_dataset: gibson
       split: val
       invert_rotations: False
+      num_points: null
+      not_use_turn_left: False
+      not_use_turn_right: False
+      not_use_move_forward: False
+      invert_collisions: False
+      not_use_rgb: False
+    transforms:
+      ConvertToTensor:
+        rank: 1
+        params: null
+      #      DiscretizeDepth:
+      #        rank: 2
+      #        params:
+      #          n_channels: 5
+      #          min_depth: 0
+      #          max_depth: 0.5
+      PermuteChannels:
+        rank: 3
+        params: null
+      Resize:
+        rank: 4
+        params:
+          size: [ 180, 320 ]
+          interpolation: BILINEAR
+      Normalize:
+        rank: 5
+        params: null
     augmentations: null
   loader:
     type: EgoDataLoader
