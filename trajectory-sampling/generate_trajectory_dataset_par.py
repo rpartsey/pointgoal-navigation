@@ -71,21 +71,13 @@ def parse_args():
         "--dataset",
         required=True,
         type=str,
-        choices=["gibson", "mp3d"],
         help="dataset (gibson, mp3d)"
     )
     parser.add_argument(
         "--split",
         required=True,
         type=str,
-        choices=["train", "val", "val_mini"],
-        help="dataset split"
-    )
-    parser.add_argument(
-        "--gibson-votes-csv",
-        required=True,
-        type=str,
-        help="path to the gibson_quality_ratings.csv",
+        help="dataset split (train, val, val_mini)"
     )
     parser.add_argument(
         "--num-episodes-per-scene",
@@ -102,11 +94,6 @@ def parse_args():
         "--max-pts-per-scene",
         type=int,
         default=-1,
-    )
-    parser.add_argument(
-        "--single-scene-test",
-        action='store_true',
-        help="whether to test for episodes of a single, random scene",
     )
     parser.add_argument(
         "--window-size",
@@ -141,35 +128,16 @@ def get_scene_name_from_scene_id(scene_id):
     return scene_id.strip().split("/")[-1].split(".")[0]
 
 
-def get_scene_folder_path_from_scene_name(args, scene_name):
-    return os.path.join(
-        args.data_dir,
-        args.split,
-        scene_name
-    )
-
-
 def create_folders_for_scene(args, scene_name):
     # args.data_dir already has dataset name appended to it
-    dir = get_scene_folder_path_from_scene_name(args, scene_name)
-    if os.path.isdir(dir):
-        return
-    else:
-        # os.makedirs(os.path.join(dir, "rgb"), exist_ok=True)
-        # os.makedirs(os.path.join(dir, "depth"), exist_ok=True)
-
-        mkdir_scene_cmd = "mkdir -p {}".format(dir)
-        subprocess.check_output(mkdir_scene_cmd, shell=True)
-
-        mkdir_rgb_cmd = "mkdir -p {}".format(os.path.join(
-            dir,
-            "rgb"
-        ))
-        mkdir_depth_cmd = "mkdir -p {}".format(os.path.join(
-            dir,
-            "depth"
-        ))
+    scene_rgb_dir = os.path.join(args.data_dir, args.split, 'rgb', scene_name)
+    if not os.path.exists(scene_rgb_dir):
+        mkdir_rgb_cmd = "mkdir -p {}".format(scene_rgb_dir)
         subprocess.check_output(mkdir_rgb_cmd, shell=True)
+
+    scene_depth_dir = os.path.join(args.data_dir, args.split, 'depth', scene_name)
+    if not os.path.exists(scene_depth_dir):
+        mkdir_depth_cmd = "mkdir -p {}".format(scene_depth_dir)
         subprocess.check_output(mkdir_depth_cmd, shell=True)
 
 
@@ -184,20 +152,16 @@ def get_frame_paths(
         os.path.join(
             args.data_dir,
             args.split,
-            scene_name,
             "rgb",
-            "{:03d}_{:03d}_{:s}_{:s}.jpg".format(
-                int(episode_id), idx, "_".join(action), "source"
-            )
+            scene_name,
+            "{:03d}_{:03d}_{:s}_{:s}.jpg".format(int(episode_id), idx, "_".join(action), "source")
         ),
         os.path.join(
             args.data_dir,
             args.split,
-            scene_name,
             "rgb",
-            "{:03d}_{:03d}_{:s}_{:s}.jpg".format(
-                int(episode_id), idx, "_".join(action), "target"
-            )
+            scene_name,
+            "{:03d}_{:03d}_{:s}_{:s}.jpg".format(int(episode_id), idx, "_".join(action), "target")
         ),
     )
 
@@ -213,20 +177,16 @@ def get_depth_map_paths(
         os.path.join(
             args.data_dir,
             args.split,
-            scene_name,
             "depth",
-            "{:03d}_{:03d}_{:s}_{:s}_depth.npy".format(
-                int(episode_id), idx, "_".join(action), "source"
-            )
+            scene_name,
+            "{:03d}_{:03d}_{:s}_{:s}_depth.npy".format(int(episode_id), idx, "_".join(action), "source")
         ),
         os.path.join(
             args.data_dir,
             args.split,
-            scene_name,
             "depth",
-            "{:03d}_{:03d}_{:s}_{:s}_depth.npy".format(
-                int(episode_id), idx, "_".join(action), "target"
-            )
+            scene_name,
+            "{:03d}_{:03d}_{:s}_{:s}_depth.npy".format(int(episode_id), idx, "_".join(action), "target")
         ),
     )
 
@@ -235,13 +195,28 @@ def build_env(config):
     dataset = PointNavDatasetV1(config.TASK_CONFIG.DATASET)
     env_type = baseline_registry.get_env(config.ENV_NAME)
     env = env_type(config, dataset)
-    env.seed(config.RANDOM_SEED)
+    env.seed(config.TASK_CONFIG.SEED)
 
     return env
 
 
-def collect_scene_dataset(params):
+def collect_dataset(params):
     args, config = params
+
+    stats = {}
+    for scene in config.TASK_CONFIG.DATASET.CONTENT_SCENES:
+        config_copy = config.clone()
+        config_copy.defrost()
+        config_copy.TASK_CONFIG.DATASET.CONTENT_SCENES = [scene]
+        config_copy.freeze()
+
+        scene_name, num_obs_pairs = collect_scene_dataset(args, config_copy)
+        stats[scene_name] = num_obs_pairs
+
+    return stats
+
+
+def collect_scene_dataset(args, config):
     scene_name = config.TASK_CONFIG.DATASET.CONTENT_SCENES[0]
 
     env = build_env(config)
@@ -404,6 +379,7 @@ def collect_scene_dataset(params):
         scene_json_path = os.path.join(
             args.data_dir,
             args.split,
+            'json',
             "{}.json".format(scene_name)
         )
         json_data = {"dataset": dataset}
@@ -418,50 +394,63 @@ if __name__ == '__main__':
     args = parse_args()
     args.data_dir = os.path.join(args.data_dir, args.dataset)
 
+    os.makedirs(os.path.join(args.data_dir, args.split,  'rgb'), exist_ok=False)
+    os.makedirs(os.path.join(args.data_dir, args.split,  'depth'), exist_ok=False)
+    os.makedirs(os.path.join(args.data_dir, args.split, 'json'), exist_ok=False)
+
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    config = get_config(
-        args.config_file, ["BASE_TASK_CONFIG_PATH", args.base_task_config_file]
-    )
+    config = get_config(args.config_file, ["BASE_TASK_CONFIG_PATH", args.base_task_config_file])
     # override config values with command line arguments:
     config.defrost()
     config.INPUT_TYPE = 'rgbd'
     config.MODEL_PATH = args.model_path
     config.RANDOM_SEED = args.seed
+    config.TASK_CONFIG.SEED = args.seed
     config.TASK_CONFIG.DATASET.SPLIT = args.split
-    config.TASK_CONFIG.DATASET.SINGLE_SCENE_TEST = args.single_scene_test
-    config.TASK_CONFIG.DATASET.GIBSON_VOTES_CSV = args.gibson_votes_csv
     config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
     config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.NUM_EPISODE_SAMPLE = args.num_episodes_per_scene
     config.freeze()
 
     mp_ctx = multiprocessing.get_context("fork")
-    NUM_GPUS = len(args.gpu_ids)
-    NUM_PROCESSES_PER_GPU = args.num_processes_per_gpu
-    NUM_WORKERS = NUM_GPUS * NUM_PROCESSES_PER_GPU
 
-    scene_names = [scene_name for scene_name, _ in get_gibson_scenes(config.TASK_CONFIG)]
-    params = [(copy.deepcopy(args), copy.deepcopy(config)) for _ in range(len(scene_names))]
+    num_processes_per_gpu = args.num_processes_per_gpu
+    gpu_ids = args.gpu_ids * num_processes_per_gpu
+    num_workers = len(gpu_ids)
 
-    for i, ((_, worker_config), scene_name) in enumerate(zip(params, scene_names)):
-        gpu_id = args.gpu_ids[i % NUM_GPUS] if NUM_GPUS > 1 else args.gpu_ids[0]
+    scenes = PointNavDatasetV1.get_scenes_to_load(config.TASK_CONFIG.DATASET)
+    random.shuffle(scenes)
 
-        worker_config.defrost()
-        worker_config.TASK_CONFIG.DATASET.CONTENT_SCENES = [scene_name]
-        worker_config.TORCH_GPU_ID = gpu_id
-        worker_config.TASK_CONFIG.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_id
-        worker_config.freeze()
+    scene_splits = [[] for _ in range(num_workers)]
+    for idx, scene in enumerate(scenes):
+        scene_splits[idx % len(scene_splits)].append(scene)
+
+    params = []
+    for i in range(num_workers):
+        proc_config = config.clone()
+        proc_config.defrost()
+
+        proc_config.defrost()
+        proc_config.TASK_CONFIG.DATASET.CONTENT_SCENES = scene_splits[i]
+        proc_config.TORCH_GPU_ID = gpu_ids[i]
+        proc_config.TASK_CONFIG.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = gpu_ids[i]
+        proc_config.RANDOM_SEED = proc_config.RANDOM_SEED + i
+        proc_config.TASK_CONFIG.SEED = proc_config.TASK_CONFIG.SEED + i
+        proc_config.freeze()
+
+        params.append((copy.deepcopy(args), proc_config))
 
     with mp_ctx.Pool(
-            NUM_WORKERS,
+            num_workers,
             initializer=tqdm.set_lock,
             initargs=(tqdm.get_lock(),),
             maxtasksperchild=1
     ) as pool:
-        stats = {}
-        with tqdm(total=len(params), desc='Overall progress'.ljust(20)) as pbar:
-            for scene_name, num_obs_pairs in pool.imap_unordered(collect_scene_dataset, params):
-                stats[scene_name] = num_obs_pairs
-                pbar.update()
-        pprint(stats)
+        global_stats = {}
+        with tqdm(total=len(scenes), desc='Overall progress'.ljust(20)) as pbar:
+            for process_stats in pool.imap_unordered(collect_dataset, params):
+                for scene_name, num_obs_pairs in process_stats.items():
+                    global_stats[scene_name] = num_obs_pairs
+                    pbar.update()
+            pprint(global_stats)

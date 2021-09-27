@@ -140,7 +140,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument(
     '--dataset-path',
     type=str,
-    required=True
+    default='/private/home/maksymets/pointgoal-navigation/data/vo_datasets_3m/gibson/train'
 )
 args = parser.parse_args()
 

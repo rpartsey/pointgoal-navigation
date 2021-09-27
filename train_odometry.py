@@ -44,9 +44,9 @@ def init_experiment(config):
         def ask():
             return input(f'Experiment "{config.experiment_name}" already exists. Delete (y/n)?')
 
-        answer = ask()
+        answer = 'y' #ask()
         while answer not in ('y', 'n'):
-            answer = ask()
+            answer = 'y'# ask()
 
         delete = answer == 'y'
         if not delete:
