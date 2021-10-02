@@ -1,0 +1,629 @@
+!!python/object/new:habitat.config.default.Config
+dictitems:
+  BASE_TASK_CONFIG_PATH: /nethome/nyokoyama3/n/cont_ctrl_results/d4_30deg_decay160M_no_sliding/pointnav_gibson.yaml
+  CHECKPOINT_FOLDER: /nethome/nyokoyama3/n/cont_ctrl_results/d4_30deg_decay160M_no_sliding/checkpoints
+  CHECKPOINT_INTERVAL: 250
+  CMD_TRAILING_OPTS: []
+  ENV_NAME: NavRLEnv
+  EVAL: !!python/object/new:habitat.config.default.Config
+    dictitems:
+      SPLIT: val
+      USE_CKPT_CONFIG: true
+    state:
+      __deprecated_keys__: !!set {}
+      __immutable__: true
+      __new_allowed__: true
+      __renamed_keys__: {}
+  EVAL_CKPT_PATH_DIR: /nethome/nyokoyama3/n/cont_ctrl_results/d4_30deg_decay160M_no_sliding/checkpoints
+  LOG_FILE: train.log
+  LOG_INTERVAL: 10
+  NUM_PROCESSES: 8
+  NUM_UPDATES: 10000000
+  ORBSLAM2: !!python/object/new:habitat.config.default.Config
+    dictitems:
+      ANGLE_TH: 0.2617993877991494
+      BETA: 100
+      CAMERA_HEIGHT: 1.25
+      DEPTH_DENORM: 10.0
+      DIST_REACHED_TH: 0.15
+      DIST_TO_STOP: 0.05
+      D_OBSTACLE_MAX: 4.0
+      D_OBSTACLE_MIN: 0.1
+      H_OBSTACLE_MAX: 1.25
+      H_OBSTACLE_MIN: 0.375
+      MAP_CELL_SIZE: 0.1
+      MAP_SIZE: 40
+      MIN_PTS_IN_OBSTACLE: 320.0
+      NEXT_WAYPOINT_TH: 0.5
+      NUM_ACTIONS: 3
+      PLANNER_MAX_STEPS: 500
+      PREPROCESS_MAP: true
+      SLAM_SETTINGS_PATH: habitat_baselines/slambased/data/mp3d3_small1k.yaml
+      SLAM_VOCAB_PATH: habitat_baselines/slambased/data/ORBvoc.txt
+    state:
+      __deprecated_keys__: !!set {}
+      __immutable__: true
+      __new_allowed__: true
+      __renamed_keys__: {}
+  RL: !!python/object/new:habitat.config.default.Config
+    dictitems:
+      DDPPO: !!python/object/new:habitat.config.default.Config
+        dictitems:
+          backbone: resnet50
+          distrib_backend: GLOO
+          num_recurrent_layers: 2
+          pretrained: false
+          pretrained_encoder: false
+          pretrained_weights: data/ddppo-models/gibson-2plus-resnet50.pth
+          reset_critic: true
+          rnn_type: LSTM
+          sync_frac: 0.6
+          train_encoder: true
+        state:
+          __deprecated_keys__: !!set {}
+          __immutable__: true
+          __new_allowed__: true
+          __renamed_keys__: {}
+      PPO: !!python/object/new:habitat.config.default.Config
+        dictitems:
+          clip_param: 0.2
+          entropy_coef: 0.01
+          eps: 1.0e-05
+          gamma: 0.99
+          hidden_size: 512
+          lr: 0.00025
+          max_grad_norm: 0.2
+          num_mini_batch: 2
+          num_steps: 128
+          ppo_epoch: 2
+          reward_window_size: 50
+          tau: 0.95
+          use_gae: true
+          use_linear_clip_decay: false
+          use_linear_lr_decay: false
+          use_normalized_advantage: false
+          value_loss_coef: 0.5
+        state:
+          __deprecated_keys__: !!set {}
+          __immutable__: true
+          __new_allowed__: true
+          __renamed_keys__: {}
+      REWARD_MEASURE: distance_to_goal
+      SLACK_REWARD: -0.01
+      STEP_REWARD_DECAY: 160000000
+      SUCCESS_MEASURE: spl
+      SUCCESS_REWARD: 2.5
+    state:
+      __deprecated_keys__: !!set {}
+      __immutable__: true
+      __new_allowed__: true
+      __renamed_keys__: {}
+  SENSORS:
+  - DEPTH_SENSOR
+  SIMULATOR_GPU_ID: 0
+  TASK_CONFIG: !!python/object/new:habitat.config.default.Config
+    dictitems:
+      DATASET: !!python/object/new:habitat.config.default.Config
+        dictitems:
+          CONTENT_SCENES:
+          - '*'
+          DATA_PATH: /nethome/nyokoyama3/n/datasets/pointnav_gibson/v2/{split}/{split}.json.gz
+          SCENES_DIR: data/scene_datasets
+          SPLIT: train
+          TYPE: PointNav-v1
+        state:
+          __deprecated_keys__: !!set {}
+          __immutable__: true
+          __new_allowed__: true
+          __renamed_keys__: {}
+      ENVIRONMENT: !!python/object/new:habitat.config.default.Config
+        dictitems:
+          ITERATOR_OPTIONS: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              CYCLE: true
+              GROUP_BY_SCENE: true
+              MAX_SCENE_REPEAT_EPISODES: -1
+              MAX_SCENE_REPEAT_STEPS: 10000
+              NUM_EPISODE_SAMPLE: -1
+              SHUFFLE: true
+              STEP_REPETITION_RANGE: 0.2
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          MAX_EPISODE_SECONDS: 10000000
+          MAX_EPISODE_STEPS: 500
+        state:
+          __deprecated_keys__: !!set {}
+          __immutable__: true
+          __new_allowed__: true
+          __renamed_keys__: {}
+      PYROBOT: !!python/object/new:habitat.config.default.Config
+        dictitems:
+          BASE_CONTROLLER: proportional
+          BASE_PLANNER: none
+          BUMP_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: PyRobotBumpSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          DEPTH_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              CENTER_CROP: false
+              HEIGHT: 480
+              MAX_DEPTH: 5.0
+              MIN_DEPTH: 0.0
+              NORMALIZE_DEPTH: true
+              TYPE: PyRobotDepthSensor
+              WIDTH: 640
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          LOCOBOT: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              ACTIONS:
+              - BASE_ACTIONS
+              - CAMERA_ACTIONS
+              BASE_ACTIONS:
+              - go_to_relative
+              - go_to_absolute
+              CAMERA_ACTIONS:
+              - set_pan
+              - set_tilt
+              - set_pan_tilt
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          RGB_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              CENTER_CROP: false
+              HEIGHT: 480
+              TYPE: PyRobotRGBSensor
+              WIDTH: 640
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          ROBOT: locobot
+          ROBOTS:
+          - locobot
+          SENSORS:
+          - RGB_SENSOR
+          - DEPTH_SENSOR
+          - BUMP_SENSOR
+        state:
+          __deprecated_keys__: !!set {}
+          __immutable__: true
+          __new_allowed__: true
+          __renamed_keys__: {}
+      SEED: 100
+      SIMULATOR: !!python/object/new:habitat.config.default.Config
+        dictitems:
+          ACTION_DISTRIBUTION: CATEGORICAL
+          ACTION_SPACE: DISCRETE
+          ACTION_SPACE_CONFIG: v0
+          AGENTS:
+          - AGENT_0
+          AGENT_0: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              ANGULAR_ACCELERATION: 12.56
+              ANGULAR_FRICTION: 1.0
+              COEFFICIENT_OF_RESTITUTION: 0.0
+              HEIGHT: 0.88
+              IS_SET_START_STATE: false
+              LINEAR_ACCELERATION: 20.0
+              LINEAR_FRICTION: 0.5
+              MASS: 32.0
+              RADIUS: 0.18
+              SENSORS:
+              - DEPTH_SENSOR
+              START_POSITION:
+              - 0
+              - 0
+              - 0
+              START_ROTATION:
+              - 0
+              - 0
+              - 0
+              - 1
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          DEFAULT_AGENT_ID: 0
+          DEPTH_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              HEIGHT: 256
+              HFOV: 90
+              MAX_DEPTH: 10.0
+              MIN_DEPTH: 0.0
+              NORMALIZE_DEPTH: true
+              ORIENTATION:
+              - 0.0
+              - 0.0
+              - 0.0
+              POSITION:
+              - 0
+              - 1.25
+              - 0
+              TYPE: HabitatSimDepthSensor
+              WIDTH: 256
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          FORWARD_STEP_SIZE: 0.25
+          HABITAT_SIM_V0: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              ALLOW_SLIDING: false
+              ENABLE_PHYSICS: false
+              GPU_DEVICE_ID: 0
+              GPU_GPU: false
+              PHYSICS_CONFIG_FILE: ./data/default.phys_scene_config.json
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          NUM_ACTION_INCREMENTS: 0
+          RGB_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              HEIGHT: 256
+              HFOV: 90
+              ORIENTATION:
+              - 0.0
+              - 0.0
+              - 0.0
+              POSITION:
+              - 0
+              - 1.25
+              - 0
+              TYPE: HabitatSimRGBSensor
+              WIDTH: 256
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          SCENE: data/scene_datasets/habitat-test-scenes/van-gogh-room.glb
+          SEED: 100
+          SEMANTIC_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              HEIGHT: 480
+              HFOV: 90
+              ORIENTATION:
+              - 0.0
+              - 0.0
+              - 0.0
+              POSITION:
+              - 0
+              - 1.25
+              - 0
+              TYPE: HabitatSimSemanticSensor
+              WIDTH: 640
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          TILT_ANGLE: 15
+          TURN_ANGLE: 30
+          TYPE: Sim-v0
+        state:
+          __deprecated_keys__: !!set {}
+          __immutable__: true
+          __new_allowed__: true
+          __renamed_keys__: {}
+      TASK: !!python/object/new:habitat.config.default.Config
+        dictitems:
+          ACTIONS: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              ANSWER: !!python/object/new:habitat.config.default.Config
+                dictitems:
+                  TYPE: AnswerAction
+                state:
+                  __deprecated_keys__: !!set {}
+                  __immutable__: true
+                  __new_allowed__: true
+                  __renamed_keys__: {}
+              LOOK_DOWN: !!python/object/new:habitat.config.default.Config
+                dictitems:
+                  TYPE: LookDownAction
+                state:
+                  __deprecated_keys__: !!set {}
+                  __immutable__: true
+                  __new_allowed__: true
+                  __renamed_keys__: {}
+              LOOK_UP: !!python/object/new:habitat.config.default.Config
+                dictitems:
+                  TYPE: LookUpAction
+                state:
+                  __deprecated_keys__: !!set {}
+                  __immutable__: true
+                  __new_allowed__: true
+                  __renamed_keys__: {}
+              MOVE_FORWARD: !!python/object/new:habitat.config.default.Config
+                dictitems:
+                  TYPE: MoveForwardAction
+                state:
+                  __deprecated_keys__: !!set {}
+                  __immutable__: true
+                  __new_allowed__: true
+                  __renamed_keys__: {}
+              STOP: !!python/object/new:habitat.config.default.Config
+                dictitems:
+                  TYPE: StopAction
+                state:
+                  __deprecated_keys__: !!set {}
+                  __immutable__: true
+                  __new_allowed__: true
+                  __renamed_keys__: {}
+              TELEPORT: !!python/object/new:habitat.config.default.Config
+                dictitems:
+                  TYPE: TeleportAction
+                state:
+                  __deprecated_keys__: !!set {}
+                  __immutable__: true
+                  __new_allowed__: true
+                  __renamed_keys__: {}
+              TURN_LEFT: !!python/object/new:habitat.config.default.Config
+                dictitems:
+                  TYPE: TurnLeftAction
+                state:
+                  __deprecated_keys__: !!set {}
+                  __immutable__: true
+                  __new_allowed__: true
+                  __renamed_keys__: {}
+              TURN_RIGHT: !!python/object/new:habitat.config.default.Config
+                dictitems:
+                  TYPE: TurnRightAction
+                state:
+                  __deprecated_keys__: !!set {}
+                  __immutable__: true
+                  __new_allowed__: true
+                  __renamed_keys__: {}
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          ANSWER_ACCURACY: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: AnswerAccuracy
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          COLLISIONS: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: Collisions
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          COMPASS_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: CompassSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          CORRECT_ANSWER: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: CorrectAnswer
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          DISTANCE_TO_GOAL: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              DISTANCE_TO: POINT
+              TYPE: DistanceToGoal
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          EPISODE_INFO: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: EpisodeInfo
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          GOAL_SENSOR_UUID: pointgoal_with_gps_compass
+          GPS_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              DIMENSIONALITY: 2
+              TYPE: GPSSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          HEADING_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: HeadingSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          IMAGEGOAL_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: ImageGoalSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          INSTRUCTION_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: InstructionSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          INSTRUCTION_SENSOR_UUID: instruction
+          MEASUREMENTS:
+          - DISTANCE_TO_GOAL
+          - SUCCESS
+          - SPL
+          - SCT
+          OBJECTGOAL_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              GOAL_SPEC: TASK_CATEGORY_ID
+              GOAL_SPEC_MAX_VAL: 50
+              TYPE: ObjectGoalSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          POINTGOAL_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              DIMENSIONALITY: 2
+              GOAL_FORMAT: POLAR
+              TYPE: PointGoalSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          POINTGOAL_WITH_GPS_COMPASS_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              DIMENSIONALITY: 2
+              GOAL_FORMAT: POLAR
+              TYPE: PointGoalWithGPSCompassSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          POSSIBLE_ACTIONS:
+          - STOP
+          - MOVE_FORWARD
+          - TURN_LEFT
+          - TURN_RIGHT
+          PROXIMITY_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              MAX_DETECTION_RADIUS: 2.0
+              TYPE: ProximitySensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          QUESTION_SENSOR: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: QuestionSensor
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          SCT: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: SCT
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          SENSORS:
+          - POINTGOAL_WITH_GPS_COMPASS_SENSOR
+          SOFT_SPL: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              TYPE: SoftSPL
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          SPL: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              SUCCESS_DISTANCE: 0.2
+              TYPE: SPL
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          SUCCESS: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              SUCCESS_DISTANCE: 0.2
+              TYPE: Success
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          SUCCESS_DISTANCE: 0.2
+          TOP_DOWN_MAP: !!python/object/new:habitat.config.default.Config
+            dictitems:
+              DRAW_BORDER: true
+              DRAW_GOAL_AABBS: true
+              DRAW_GOAL_POSITIONS: true
+              DRAW_SHORTEST_PATH: true
+              DRAW_SOURCE: true
+              DRAW_VIEW_POINTS: true
+              FOG_OF_WAR: !!python/object/new:habitat.config.default.Config
+                dictitems:
+                  DRAW: true
+                  FOV: 90
+                  VISIBILITY_DIST: 5.0
+                state:
+                  __deprecated_keys__: !!set {}
+                  __immutable__: true
+                  __new_allowed__: true
+                  __renamed_keys__: {}
+              MAP_PADDING: 3
+              MAP_RESOLUTION: 5000
+              MAX_EPISODE_STEPS: 1000
+              NUM_TOPDOWN_MAP_SAMPLE_POINTS: 20000
+              TYPE: TopDownMap
+            state:
+              __deprecated_keys__: !!set {}
+              __immutable__: true
+              __new_allowed__: true
+              __renamed_keys__: {}
+          TYPE: Nav-v0
+        state:
+          __deprecated_keys__: !!set {}
+          __immutable__: true
+          __new_allowed__: true
+          __renamed_keys__: {}
+    state:
+      __deprecated_keys__: !!set {}
+      __immutable__: true
+      __new_allowed__: true
+      __renamed_keys__: {}
+  TENSORBOARD_DIR: /nethome/nyokoyama3/n/cont_ctrl_results/d4_30deg_decay160M_no_sliding/tb
+  TEST_EPISODE_COUNT: -1
+  TORCH_GPU_ID: 0
+  TRAINER_NAME: ddppo
+  TXT_DIR: /nethome/nyokoyama3/n/cont_ctrl_results/d4_30deg_decay160M_no_sliding/txts
+  VIDEO_DIR: /nethome/nyokoyama3/n/cont_ctrl_results/d4_30deg_decay160M_no_sliding/video_dir
+  VIDEO_OPTION: []
+state:
+  __deprecated_keys__: !!set {}
+  __immutable__: true
+  __new_allowed__: true
+  __renamed_keys__: {}
