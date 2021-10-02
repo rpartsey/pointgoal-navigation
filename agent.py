@@ -23,6 +23,7 @@ from gym.spaces import Discrete
 import habitat
 import habitat_sim
 from habitat.config import Config
+from habitat.config.default import get_config as get_env_config
 from habitat.core.agent import Agent
 from habitat.core.simulator import Observations
 from habitat.tasks.nav.nav import (
@@ -325,7 +326,7 @@ class PPOAgent(Agent):
 
 # TODO: come up with a more descriptive class name
 class PPOAgentV2(PPOAgent):
-    def __init__(self, config: Config, pointgoal_estimator: PointgoalEstimator):
+    def __init__(self, config: Config, pointgoal_estimator: PointgoalEstimator = None):
         super().__init__(config)
         self.pointgoal_estimator = pointgoal_estimator
 
@@ -350,11 +351,14 @@ class PPOAgentV2(PPOAgent):
         return pointgoal
 
     def act(self, observations: Observations) -> Dict[str, int]:
-        # inject estimated point goal location as a 'pointgoal_with_gps_compass' sensor measure
-        pointgoal = self._get_pointgoal_estimate(copy.deepcopy(observations))
-        observations[IntegratedPointGoalGPSAndCompassSensor.cls_uuid] = pointgoal
+        if IntegratedPointGoalGPSAndCompassSensor.cls_uuid not in observations and self.pointgoal_estimator is not None:
+            # inject estimated point goal location as a 'pointgoal_with_gps_compass' sensor measure
+            pointgoal = self._get_pointgoal_estimate(copy.deepcopy(observations))
+            observations[IntegratedPointGoalGPSAndCompassSensor.cls_uuid] = pointgoal
 
-        observations.pop(PointGoalSensor.cls_uuid)
+        if PointGoalSensor.cls_uuid in observations:
+            observations.pop(PointGoalSensor.cls_uuid)
+
         if self.input_type == 'depth':
             observations.pop('rgb')
 
@@ -420,31 +424,37 @@ def main():
         agent = PPOAgent(config)
 
     elif args.agent_type == PPOAgentV2.__name__:
-        vo_config = get_vo_config(args.vo_config_path, new_keys_allowed=True)
         device = torch.device('cuda', args.pth_gpu_id)
 
-        obs_transforms = make_transforms(vo_config.val.dataset.transforms)
-        vo_model = make_model(vo_config.model).to(device)
-        checkpoint = torch.load(args.vo_checkpoint_path, map_location=device)
-        # if config.distrib_backend:
-        new_checkpoint = OrderedDict()
-        for k, v in checkpoint.items():
-            new_checkpoint[k.replace('module.', '')] = v
-        checkpoint = new_checkpoint
-        vo_model.load_state_dict(checkpoint)
-        vo_model.eval()
+        config_paths = os.environ["CHALLENGE_CONFIG_FILE"]
+        config_env = get_env_config(config_paths)
 
-        pointgoal_estimator = PointgoalEstimator(
-            obs_transforms=obs_transforms,
-            vo_model=vo_model,
-            action_embedding_on=vo_config.model.params.action_embedding_size > 0,
-            depth_discretization_on=(hasattr(vo_config.val.dataset.transforms, 'DiscretizeDepth')
-                                     and vo_config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0),
-            rotation_regularization_on=args.rotation_regularization_on,
-            vertical_flip_on=args.vertical_flip_on,
-            device=device
-        )
-        agent = PPOAgentV2(config, pointgoal_estimator)
+        if config_env.TASK.GOAL_SENSOR_UUID == PointGoalSensor.cls_uuid:
+            vo_config = get_vo_config(args.vo_config_path, new_keys_allowed=True)
+            obs_transforms = make_transforms(vo_config.val.dataset.transforms)
+            vo_model = make_model(vo_config.model).to(device)
+            checkpoint = torch.load(args.vo_checkpoint_path, map_location=device)
+
+            new_checkpoint = OrderedDict()
+            for k, v in checkpoint.items():
+                new_checkpoint[k.replace('module.', '')] = v
+            checkpoint = new_checkpoint
+            vo_model.load_state_dict(checkpoint)
+            vo_model.eval()
+
+            pointgoal_estimator = PointgoalEstimator(
+                obs_transforms=obs_transforms,
+                vo_model=vo_model,
+                action_embedding_on=vo_config.model.params.action_embedding_size > 0,
+                depth_discretization_on=(hasattr(vo_config.val.dataset.transforms, 'DiscretizeDepth')
+                                         and vo_config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0),
+                rotation_regularization_on=args.rotation_regularization_on,
+                vertical_flip_on=args.vertical_flip_on,
+                device=device
+            )
+            agent = PPOAgentV2(config, pointgoal_estimator)
+        else:
+            agent = PPOAgentV2(config)
 
     elif args.agent_type == ShortestPathFollowerAgent.__name__:
         assert args.evaluation == "local", "ShortestPathFollowerAgent supports only local evaluation"
