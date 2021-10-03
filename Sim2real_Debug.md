@@ -3,13 +3,14 @@
 
 Performance comparison of different navigation policies and localizations of Gibson val_mini:
 
-| # | spl  |softspl | success | distance_to_goal | agent | localization|
-| - |   -- |  --  |   -- | --   |  --  |  -- | 
-| 1 | 0.85 | 0.80 | 0.98 | 0.42 | SPF | - |
-| 2 | 0.75 | 0.74 | 0.98 | 0.34 | pointnav2021_gt_loc_depth_ckpt.345.pth | GT | 
-| 3 | 0.72 | 0.73 | 0.92 | 0.29 | pointnav2021_gt_loc_depth_ckpt.345.pth | VO |
-| 4 | 0.00 | 0.01 | 0.01 | 7.81 | ckpt.89.pth | GT |
-| 5 | 0.01 | 0.01 | 0.01 | 7.86 | ckpt.89.pth | VO |
+| # | spl  |softspl | success | distance_to_goal | agent | localization|train height|eval height|
+| - |   -- |  --  |   -- | --   |  --  |  -- |  --  |  -- | 
+| 1 | 0.85 | 0.80 | 0.98 | 0.42 | SPF | - |  -  |  - | 
+| 2 | 0.75 | 0.74 | 0.98 | 0.34 | pointnav2021_gt_loc_depth_ckpt.345.pth | GT | 0.88  | 0.88 | 
+| 3 | 0.67 | 0.66 | 0.88 | 1.70 | pointnav2021_gt_loc_depth_ckpt.345.pth | GT | 0.88  | 0.61 | 
+| 4 | 0.72 | 0.73 | 0.92 | 0.29 | pointnav2021_gt_loc_depth_ckpt.345.pth | VO | 0.88  | 0.88 | 
+| 5 | 0.00 | 0.01 | 0.01 | 7.81 | ckpt.89.pth | GT | 1.25  | 0.88 | 
+| 6 | 0.01 | 0.01 | 0.01 | 7.86 | ckpt.89.pth | VO | 1.25  | 0.88 | 
 
 
 ### 1 Experiment
@@ -36,6 +37,19 @@ python agent.py \
 
 ### 3 Experiment
 ```
+export CHALLENGE_CONFIG_FILE=config_files/sim2real_debug/challenge_pointnav2021_gt_loc_0.61m.local.rgbd.yaml
+
+python agent.py \
+--agent-type PPOAgentV2 \
+--input-type depth \
+--evaluation local \
+--ddppo-checkpoint-path /home/rpartsey/code/3d-navigation/pointgoal-navigation/checkpoints/ddppo/pointnav2021_gt_loc_depth_ckpt.345.pth \
+--ddppo-config-path config_files/sim2real_debug/ddppo_pointnav_2021.yaml \
+--pth-gpu-id 0
+```
+
+### 4 Experiment
+```
 export CHALLENGE_CONFIG_FILE=config_files/sim2real_debug/challenge_pointnav2021.local.rgbd.yaml
 
 python agent.py \
@@ -51,7 +65,7 @@ python agent.py \
 --vertical-flip-on 
 ```
 
-### 4 Experiment
+### 5 Experiment
 ```
 export CHALLENGE_CONFIG_FILE=config_files/sim2real_debug/challenge_pointnav2021_gt_loc.local.rgbd.yaml
 
@@ -64,7 +78,7 @@ python agent.py \
 --pth-gpu-id 0
 ```
 
-### 5 Experiment
+### 6 Experiment
 ```
 export CHALLENGE_CONFIG_FILE=config_files/sim2real_debug/challenge_pointnav2021.local.rgbd.yaml
 
