@@ -5,13 +5,11 @@ import json
 import gzip
 import random
 import argparse
-import subprocess
 from pprint import pprint
 
 import cv2
 import quaternion
 import numpy as np
-from PIL import Image
 from tqdm.auto import tqdm, trange
 from collections import defaultdict
 from itertools import groupby
@@ -21,7 +19,6 @@ from habitat_baselines.config.default import get_config
 from habitat_baselines.common.baseline_registry import baseline_registry
 from habitat.datasets.pointnav.pointnav_dataset import PointNavDatasetV1
 
-from environment.build_env import get_gibson_scenes
 
 # Disable logging to prevent tqdm progressbar corruption
 import logging
@@ -133,14 +130,10 @@ def get_scene_name_from_scene_id(scene_id):
 def create_folders_for_scene(args, scene_name):
     # args.data_dir already has dataset name appended to it
     scene_rgb_dir = os.path.join(args.data_dir, args.split, 'rgb', scene_name)
-    if not os.path.exists(scene_rgb_dir):
-        mkdir_rgb_cmd = "mkdir -p {}".format(scene_rgb_dir)
-        subprocess.check_output(mkdir_rgb_cmd, shell=True)
+    os.makedirs(scene_rgb_dir, exist_ok=False)
 
     scene_depth_dir = os.path.join(args.data_dir, args.split, 'depth', scene_name)
-    if not os.path.exists(scene_depth_dir):
-        mkdir_depth_cmd = "mkdir -p {}".format(scene_depth_dir)
-        subprocess.check_output(mkdir_depth_cmd, shell=True)
+    os.makedirs(scene_depth_dir, exist_ok=False)
 
 
 def get_frame_paths(
@@ -207,6 +200,8 @@ def collect_dataset(params):
 
     stats = {}
     for scene in config.TASK_CONFIG.DATASET.CONTENT_SCENES:
+        create_folders_for_scene(args, scene)
+
         config_copy = config.clone()
         config_copy.defrost()
         config_copy.TASK_CONFIG.DATASET.CONTENT_SCENES = [scene]
@@ -275,13 +270,7 @@ def collect_scene_dataset(args, config):
             'n_collisions': info['collisions']['count']
         }
 
-        # 4. make sure that all the directories for
-        # saving image frames/depth maps are created on disk
-        # for this scene
-        scene_name = get_scene_name_from_scene_id(scene_id)
-        create_folders_for_scene(args, scene_name)
-
-        # 5. get an estimate for the number of data points
+        # 4. get an estimate for the number of data points
         # to sample for this episode
         n_pts_to_sample = int(np.ceil(args.pts_frac_per_episode * n_episode_steps))
 
@@ -289,12 +278,12 @@ def collect_scene_dataset(args, config):
             n_episodes_for_this_scene = scene_wise_episode_cnt_stats[scene_id]["n_episodes"]
             n_pts_to_sample = int(np.ceil(args.max_pts_per_scene / n_episodes_for_this_scene))
 
-        # 6. sample data points from within this episode
+        # 5. sample data points from within this episode
         idxs = list(range(n_episode_steps - 1))  # subtract 1 to not sample last index
         random.shuffle(idxs)
         sample_idxs = idxs[:n_pts_to_sample]
 
-        # 7. for each data point, create a dataset entry
+        # 6. for each data point, create a dataset entry
         data_pts_for_curr_episode = []
         for idx in sample_idxs:
             window_size = np.random.randint(1, args.window_size + 1)
@@ -391,7 +380,7 @@ def collect_scene_dataset(args, config):
             # pbar.update()
     env.close()
 
-    # 8. write all scene jsons to disk
+    # 7. write all scene jsons to disk
     for scene_name, dataset in scene_name_to_dataset_map.items():
         scene_json_path = os.path.join(
             args.data_dir,
@@ -407,18 +396,31 @@ def collect_scene_dataset(args, config):
 
 
 if __name__ == '__main__':
-    
     args = parse_args()
     args.data_dir = os.path.join(args.data_dir, args.dataset)
 
-    os.makedirs(os.path.join(args.data_dir, args.split,  'rgb'), exist_ok=False)
-    os.makedirs(os.path.join(args.data_dir, args.split,  'depth'), exist_ok=False)
-    os.makedirs(os.path.join(args.data_dir, args.split, 'json'), exist_ok=False)
+    os.makedirs(os.path.join(args.data_dir, args.split,  'rgb'), exist_ok=True)
+    os.makedirs(os.path.join(args.data_dir, args.split,  'depth'), exist_ok=True)
+    os.makedirs(os.path.join(args.data_dir, args.split, 'json'), exist_ok=True)
+
+    config = get_config(args.config_file, ["BASE_TASK_CONFIG_PATH", args.base_task_config_file])
+
+    if (os.environ.get('SLURM_JOBID') is not None) or (os.environ.get('SLURM_JOB_ID') is not None):
+        world_rank = int(os.environ["SLURM_PROCID"])
+        world_size = int(os.environ["SLURM_NTASKS"])
+    else:
+        world_rank = 0
+        world_size = 1
+
+    num_processes_per_gpu = args.num_processes_per_gpu
+    gpu_ids = args.gpu_ids * num_processes_per_gpu
+    num_workers = len(gpu_ids)
+
+    args.seed = args.seed + world_rank * num_workers
 
     random.seed(args.seed)
     np.random.seed(args.seed)
 
-    config = get_config(args.config_file, ["BASE_TASK_CONFIG_PATH", args.base_task_config_file])
     # override config values with command line arguments:
     config.defrost()
     config.INPUT_TYPE = 'rgbd'
@@ -428,23 +430,30 @@ if __name__ == '__main__':
     config.TASK_CONFIG.DATASET.SPLIT = args.split
     config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
     config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.NUM_EPISODE_SAMPLE = args.num_episodes_per_scene
+    if 'COLLISIONS' not in config.TASK_CONFIG.TASK.MEASUREMENTS:
+        config.TASK_CONFIG.TASK.MEASUREMENTS.append('COLLISIONS')
     config.freeze()
 
-    mp_ctx = multiprocessing.get_context("fork")
-
-    num_processes_per_gpu = args.num_processes_per_gpu
-    gpu_ids = args.gpu_ids * num_processes_per_gpu
-    num_workers = len(gpu_ids)
+    json_files = os.listdir(os.path.join(args.data_dir, args.split, 'json'))
+    finished_scenes = [file_name.split('.')[0] for file_name in json_files]
 
     scenes = PointNavDatasetV1.get_scenes_to_load(config.TASK_CONFIG.DATASET)
-    random.shuffle(scenes)
+    scenes = [scene for scene in scenes if scene not in finished_scenes]
+    scenes.sort()
 
-    scene_splits = [[] for _ in range(num_workers)]
-    for idx, scene in enumerate(scenes):
+    per_distrib_worker = int(np.ceil(len(scenes) / world_size))
+    iter_start = world_rank * per_distrib_worker
+    iter_stop = min(iter_start + per_distrib_worker, len(scenes))
+
+    distrib_worker_scenes = scenes[iter_start:iter_stop]
+    random.shuffle(distrib_worker_scenes)
+
+    scene_splits = [[] for _ in range(min(num_workers, len(distrib_worker_scenes)))]
+    for idx, scene in enumerate(distrib_worker_scenes):
         scene_splits[idx % len(scene_splits)].append(scene)
 
     params = []
-    for i in range(num_workers):
+    for i in range(len(scene_splits)):
         proc_config = config.clone()
         proc_config.defrost()
 
@@ -458,6 +467,7 @@ if __name__ == '__main__':
 
         params.append((copy.deepcopy(args), proc_config))
 
+    mp_ctx = multiprocessing.get_context("fork")
     with mp_ctx.Pool(
             num_workers,
             initializer=tqdm.set_lock,
