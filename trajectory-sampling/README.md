@@ -1,9 +1,9 @@
 # Visual odometry dataset generation
 
 Visual odometry dataset is collected by sampling pairs of RGBD observations (and additional meta information,
-see `generate_trajectory_dataset.py`) from agent rollout trajectories.
+see `generate_trajectory_dataset_par.py`) from agent rollout trajectories.
 
-Before running `./generate_dataset.sh` add the _pointgoal-navigation_ root directory to the _PYTHONPATH_ 
+Before running `./generate_dataset_par.sh` add the _pointgoal-navigation_ root directory to the _PYTHONPATH_ 
 ```shell
 export PYTHONPATH="<pointgoal-navigation root directory>:${PYTHONPATH}"
 ```
@@ -36,7 +36,7 @@ Example:
   --base-task-config-file ../config_files/challenge_pointnav2021.local.rgbd.yaml \
   --dataset gibson \
   --split train \
-  --num-episodes-per-scene 2000 \
+  --num-episodes-per-scene 4000 \
   --gpu-ids 0 1 \
   --num-processes-per-gpu 4 \
   --pts-frac-per-episode 0.2
@@ -56,7 +56,7 @@ Example:
   --dataset gibson \
   --split train \
   --gibson-votes-csv data/datasets/pointnav/gibson/v2/gibson_quality_ratings.csv \
-  --num-episodes-per-scene 2500 \  
+  --num-episodes-per-scene 4000 \
   --gpu-ids 0 \
   --num-processes-per-gpu 4 \
   --pts-frac-per-episode 0.2
