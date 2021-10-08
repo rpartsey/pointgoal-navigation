@@ -17,7 +17,7 @@ train:
       environment_dataset: gibson
       split: train
       invert_rotations: False
-      num_points: null
+      num_points: 1000000
       not_use_turn_left: False
       not_use_turn_right: False
       not_use_move_forward: False
