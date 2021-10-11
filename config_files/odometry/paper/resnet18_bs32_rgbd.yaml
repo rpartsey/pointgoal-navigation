@@ -17,7 +17,7 @@ train:
       environment_dataset: gibson
       split: train
       invert_rotations: False
-      num_points: 1000000
+      num_points: 500000
       not_use_turn_left: False
       not_use_turn_right: False
       not_use_move_forward: False
@@ -127,7 +127,7 @@ model:
         output_size: 4
         p_dropout: 0.2
     collision_embedding_size: 0
-    action_embedding_size: 16
+    action_embedding_size: 0
 
 loss:
   type: PoseLossV2
