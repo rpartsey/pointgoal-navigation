@@ -395,7 +395,7 @@ def main():
     parser.add_argument("--vo-checkpoint-path", type=str, default="vo.ckpt.pth")
     parser.add_argument("--rotation-regularization-on", action='store_true')
     parser.add_argument("--vertical-flip-on", action='store_true')
-    parser.add_argument("--pth-gpu-id", type=int, default=1)
+    parser.add_argument("--pth-gpu-id", type=int, default=0)
     parser.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()
 
