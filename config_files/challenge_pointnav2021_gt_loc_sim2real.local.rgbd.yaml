@@ -13,7 +13,7 @@ SIMULATOR:
     ALLOW_SLIDING: False
   RGB_SENSOR:
     WIDTH: 640
-    HEIGHT: 360
+    HEIGHT: 480
     HFOV: 70
     POSITION: [0, 0.61, 0]
     ORIENTATION: [0, 0, 0] # 0 degrees
@@ -23,9 +23,9 @@ SIMULATOR:
 
   DEPTH_SENSOR:
     WIDTH: 640
-    HEIGHT: 360
+    HEIGHT: 480
     HFOV: 70
-    MIN_DEPTH: 0.1
+    MIN_DEPTH: 0.0
     MAX_DEPTH: 10.0
     POSITION: [0, 0.61, 0]
     ORIENTATION: [0, 0, 0] # 0 degrees
