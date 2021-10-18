@@ -30,9 +30,11 @@ echo "$CMD_EVAL_OPTS" > ${CMD_EVAL_OPTS_FILE}
 
 # val on new episodes [\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\"]
 #sbatch --export=ALL,CMD_OPTS_FILE=${CMD_EVAL_OPTS_FILE} --job-name=${EXP_NAME: -7}e --output=$LOG_DIR/log_eval.out --error=$LOG_DIR/log_eval.err experiments/run_obj_nav_eval.sh
+#sbatch --export=ALL,CMD_OPTS_FILE=${CMD_EVAL_OPTS_FILE} --job-name=${EXP_NAME: -7}e --output=$LOG_DIR/log_eval.out --error=$LOG_DIR/log_eval.err experiments/run_obj_nav_eval.sh
 
 
 #sbatch --export=ALL,CMD_OPTS_FILE=/checkpoint/maksymets/logs/habitat_baselines/ddppo/obj_nav_mp3d_all_train_rgbd_no_up_down2020_05_14_13_25_56/cmd_eval_opt.txt --job-name=3_25_56e --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/obj_nav_mp3d_all_train_rgbd_no_up_down2020_05_14_13_25_56/log_eval.out --error=/checkpoint/maksymets/logs/habitat_baselines/ddppo/obj_nav_mp3d_all_train_rgbd_no_up_down2020_05_14_13_25_56/log_eval.err experiments/run_obj_nav_eval.sh
+#sbatch --export=ALL,CMD_OPTS_FILE=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/pointnav2021_gt_loc_gibson0_pretrained_2021_09_22_13_12_08/cmd_eval_opt.txt --job-name=3_12_08e --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/pointnav2021_gt_loc_gibson0_pretrained_2021_09_22_13_12_08/log_eval.out --error=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/pointnav2021_gt_loc_gibson0_pretrained_2021_09_22_13_12_08/log_eval.err navigation/experiments/run_experiment.sh
 #BASE_TASK_CONFIG_PATH configs/tasks/objectnav_mp3d.yaml EVAL_CKPT_PATH_DIR data/new_checkpoints/obj_nav_mp3d_all_train_rgbd_no_up_down2020_05_14_13_25_56 CHECKPOINT_FOLDER data/new_checkpoints/obj_nav_mp3d_all_train_rgbd_no_up_down2020_05_14_13_25_56 TENSORBOARD_DIR /checkpoint/maksymets/logs/habitat_baselines/ddppo/obj_nav_mp3d_all_train_rgbd_no_up_down2020_05_14_13_25_56   TEST_EPISODE_COUNT 2195 EVAL.SPLIT val_mini VIDEO_OPTION []
 
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=vo_3m_nod
+#SBATCH --job-name=vo_3m_nod_fx
 #SBATCH --gres=gpu:8   #gpu:volta:8
 #SBATCH --constraint=volta32gb
 #SBATCH --nodes 8
@@ -13,8 +13,8 @@
 #SBATCH --partition=learnlab
 #SBATCH --open-mode=append
 #SBATCH --comment="EmbodiedAI Challenges 2021"
-#SBATCH --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_gibson_3m_no_ddepth/log.out
-#SBATCH --error=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_gibson_3m_no_ddepth/log.err
+#SBATCH --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_gibson_3m_no_ddepth_fixed/log.out
+#SBATCH --error=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_gibson_3m_no_ddepth_fixed/log.err
 
 export MASTER_ADDR=$(srun --ntasks=1 hostname 2>&1 | tail -n1)
 
