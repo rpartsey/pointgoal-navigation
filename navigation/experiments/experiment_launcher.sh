@@ -4,18 +4,41 @@ CURRENT_DATETIME="`date +%Y_%m_%d_%H_%M_%S`";
 
 BASE_TASK_CONFIG_PATH="config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml"
 
-EXP_NAME="pointnav2021_gt_loc_rgbd_${CURRENT_DATETIME}"
-DATASET_CONTENT_SCENES=""
+#EXP_NAME="pointnav2021_gt_loc_rgbd_${CURRENT_DATETIME}"
+#DATASET_CONTENT_SCENES=""
+#MAX_SCENE_REPEAT_STEPS=""
+#NUM_EPISODE_SAMPLE=""
+#SENSORS=""
+
+
+#EXP_NAME="pointnav2021_gt_loc_rgbd_${CURRENT_DATETIME}" #
+#DATASET_CONTENT_SCENES="TASK_CONFIG.SEED 7 RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights data/new_checkpoints/pointnav2021_gt_loc_rgbd_2021_03_23_14_59_34/ckpt.6.pth"
+
+
+#EXP_NAME="pointnav2021_gt_loc_rgbd_suc_dist_0.18_${CURRENT_DATETIME}" #
+#DATASET_CONTENT_SCENES="TASK_CONFIG.TASK.SUCCESS.SUCCESS_DISTANCE 0.18 TASK_CONFIG.SEED 7 RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights /private/home/maksymets/pointgoal-navigation/data/new_checkpoints/pointnav2021_gt_loc_rgbd_2021_03_23_22_43_10/ckpt.345.pth"
+
+# Gibson 0
+#EXP_NAME="pointnav2021_gt_loc_gibson0_pretrained_${CURRENT_DATETIME}" #
+#DATASET_CONTENT_SCENES="TASK_CONFIG.DATASET.SPLIT train_extra_large TASK_CONFIG.DATASET.DATA_PATH /checkpoint/sramakri/projects/Habitat-Matterport/pointnav_datasets/gibson/v2/{split}/{split}.json.gz   BASE_TASK_CONFIG_PATH config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml TASK_CONFIG.SEED 7 RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights /private/home/maksymets/pointgoal-navigation/data/new_checkpoints/pointnav2021_gt_loc_rgbd_2021_03_23_22_43_10/ckpt.345.pth"
+
+#EXP_NAME="pointnav2021_gt_loc_gibson0_pretrained_spl_rew${CURRENT_DATETIME}" #
+#DATASET_CONTENT_SCENES="TASK_CONFIG.DATASET.SPLIT train_extra_large TASK_CONFIG.DATASET.DATA_PATH /checkpoint/sramakri/projects/Habitat-Matterport/pointnav_datasets/gibson/v2/{split}/{split}.json.gz   BASE_TASK_CONFIG_PATH config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml TASK_CONFIG.SEED 7 RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights /private/home/maksymets/pointgoal-navigation/data/new_checkpoints/pointnav2021_gt_loc_gibson0_pretrained_2021_09_22_13_12_08/ckpt.493.pth"
+
+EXP_NAME="pointnav2021_gt_loc_gibson0_pretrained_spl_rew_trsh${CURRENT_DATETIME}" #
+DATASET_CONTENT_SCENES="TASK_CONFIG.DATASET.SPLIT train_extra_large TASK_CONFIG.DATASET.DATA_PATH /checkpoint/sramakri/projects/Habitat-Matterport/pointnav_datasets/gibson/v2/{split}/{split}.json.gz   BASE_TASK_CONFIG_PATH config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml TASK_CONFIG.SEED 7 
+RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights /private/home/maksymets/pointgoal-navigation/data/new_checkpoints/pointnav2021_gt_loc_gibson0_pretrained_spl_rew2021_10_13_02_03_31/ckpt.22.pth"
 MAX_SCENE_REPEAT_STEPS=""
 NUM_EPISODE_SAMPLE=""
 SENSORS=""
+TRAINER_CONFIG="config_files/ddppo/ddppo_pointnav_2021_spl_thrsh_reward.yaml"
 
 LOG_DIR="/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/${EXP_NAME}"
 CHKP_DIR="data/new_checkpoints/${EXP_NAME}"
 CMD_OPTS_FILE="${LOG_DIR}/cmd_opt.txt"
 
-CMD_EVAL_OPTS="BASE_TASK_CONFIG_PATH $BASE_TASK_CONFIG_PATH EVAL_CKPT_PATH_DIR ${CHKP_DIR} CHECKPOINT_FOLDER ${CHKP_DIR} TENSORBOARD_DIR ${LOG_DIR} ${RL_PPO_NUM_STEPS} ${SENSORS}"
-CMD_OPTS="${DATASET_CONTENT_SCENES} ${MAX_SCENE_REPEAT_STEPS} ${NUM_EPISODE_SAMPLE} ${CMD_EVAL_OPTS}"
+CMD_EVAL_OPTS="--exp-config ${TRAINER_CONFIG} BASE_TASK_CONFIG_PATH $BASE_TASK_CONFIG_PATH EVAL_CKPT_PATH_DIR ${CHKP_DIR} CHECKPOINT_FOLDER ${CHKP_DIR} TENSORBOARD_DIR ${LOG_DIR} ${RL_PPO_NUM_STEPS} ${SENSORS}"
+CMD_OPTS="${CMD_EVAL_OPTS} ${DATASET_CONTENT_SCENES} ${MAX_SCENE_REPEAT_STEPS} ${NUM_EPISODE_SAMPLE}"
 
 
 mkdir -p ${CHKP_DIR}
@@ -26,10 +49,10 @@ sbatch --export=ALL,CMD_OPTS_FILE=${CMD_OPTS_FILE} --job-name=${EXP_NAME: -8} --
 
 
 CMD_EVAL_OPTS_FILE="${LOG_DIR}/cmd_eval_opt.txt"
-CMD_EVAL_OPTS="${CMD_EVAL_OPTS} EVAL.SPLIT val TASK_CONFIG.DATASET.CONTENT_SCENES [\"*\",\"*\"] NUM_PROCESSES 1 RL.PPO.num_mini_batch 1 VIDEO_OPTION [] TASK_CONFIG.TASK.TOP_DOWN_MAP.MAP_RESOLUTION 12500"
+CMD_EVAL_OPTS="${CMD_EVAL_OPTS} EVAL.SPLIT val TASK_CONFIG.DATASET.CONTENT_SCENES [\"*\",\"*\"] VIDEO_OPTION []"
 echo "$CMD_EVAL_OPTS" > ${CMD_EVAL_OPTS_FILE}
 # val on new episodes [\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\",\"1pXnuDYAj8r\"]
-#sbatch --export=ALL,CMD_OPTS_FILE=${CMD_EVAL_OPTS_FILE} --job-name=${EXP_NAME: -7}e --output=$LOG_DIR/log_eval.out --error=$LOG_DIR/log_eval.err experiments/run_obj_nav_eval.sh
+sbatch --export=ALL,CMD_OPTS_FILE=${CMD_EVAL_OPTS_FILE} --job-name=${EXP_NAME: -7}e --output=$LOG_DIR/log_eval.out --error=$LOG_DIR/log_eval.err navigation/experiments/run_experiment_eval.sh
 
 
 

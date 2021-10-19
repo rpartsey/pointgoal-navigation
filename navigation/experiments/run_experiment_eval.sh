@@ -1,16 +1,16 @@
 #!/bin/bash
 #SBATCH --job-name=pointgoal_nav
-#SBATCH --gres=gpu:8   #gpu:volta:8
+#SBATCH --gres=gpu:1   #gpu:volta:8
 #SBATCH --constraint=volta32gb
 #SBATCH --nodes 1
 #SBATCH --cpus-per-task 10
-#SBATCH --ntasks-per-node 8
+#SBATCH --ntasks-per-node 1
 #SBATCH --mem=450GB #maybe 450, was 500GB
 #SBATCH --time=72:00:00
 #SBATCH --signal=USR1@600
 #SBATCH --mail-user=maksymets@gmail.com
 #SBATCH --mail-type=ALL
-#SBATCH --partition=devlab
+#SBATCH --partition=learnlab
 #SBATCH --open-mode=append
 #SBATCH --comment="EmbodiedAI Challenges 2021"
 
@@ -57,6 +57,9 @@ unset LD_PRELOAD
 CMD_OPTS=$(cat "$CMD_OPTS_FILE")
 
 set -x
-srun python -u -m habitat_baselines.run \
-    --exp-config config_files/ddppo/ddppo_pointnav_2021.yaml \
+#srun python -u -m habitat_baselines.run \
+#    --exp-config config_files/ddppo/ddppo_pointnav_2021.yaml \
+#    --run-type eval ${CMD_OPTS}
+
+srun python -u  run_ddppo.py \
     --run-type eval ${CMD_OPTS}
