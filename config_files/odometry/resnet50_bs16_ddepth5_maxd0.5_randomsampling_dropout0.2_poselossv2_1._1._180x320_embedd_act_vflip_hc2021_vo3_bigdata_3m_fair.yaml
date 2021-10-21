@@ -1,4 +1,4 @@
-experiment_name: resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_3m_fixed
+experiment_name: resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_3m
 log_dir: ../experiments
 epochs: 150
 device: cuda:0
@@ -97,7 +97,7 @@ model:
   pretrained_checkpoint: null #/home/rpartsey/code/3d-navigation/pointgoal-navigation/experiments/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poseloss1._1._180x320_embedd_act_vflip_hc2021_vo3/best_checkpoint_36e.pt
   params:
     encoder:
-      type: resnet18
+      type: resnet50
       params:
         depth: 5
         weights: null

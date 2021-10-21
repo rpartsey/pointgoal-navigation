@@ -1,3 +1,4 @@
+import gzip
 import json
 import numpy as np
 from glob import glob
@@ -104,9 +105,9 @@ def get_relative_egomotion(data, EPS=1e-8):
 
 def load_jsons(dataset_path):
     data = []
-    for json_path in glob(f'{dataset_path}/*.json'):
-        with open(json_path, 'r') as file:
-            content = json.load(file)
+    for json_path in glob(f'{dataset_path}/*.json.gz'):
+        with gzip.open(json_path, 'rt') as file:
+            content = json.loads(file.read())
 
         for item in content['dataset']:
             data.append({

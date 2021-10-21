@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=ddppo-object-nav
+#SBATCH --job-name=vo3mrn50
 #SBATCH --gres=gpu:8   #gpu:volta:8
 #SBATCH --constraint=volta32gb
-#SBATCH --nodes 16
+#SBATCH --nodes 8
 #SBATCH --cpus-per-task 10
 #SBATCH --ntasks-per-node 8
 #SBATCH --mem=450GB #maybe 450, was 500GB
@@ -10,15 +10,15 @@
 #SBATCH --signal=USR1@600
 #SBATCH --mail-user=maksymets@gmail.com
 #SBATCH --mail-type=ALL
-#SBATCH --partition=learnlab
+#SBATCH --partition=prioritylab
 #SBATCH --open-mode=append
-#SBATCH --comment="CVPR 2021"
+#SBATCH --comment="EmbodiedAI Challenges 2021"
+#SBATCH --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_gibson_3m_no_ddepth_rn50/log.out
+#SBATCH --error=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_gibson_3m_no_ddepth_rn50/log.err
 
 export MASTER_ADDR=$(srun --ntasks=1 hostname 2>&1 | tail -n1)
-# avoid error: semaphore_tracker: There appear to be 1 leaked semaphores to clean up at shutdown
-export PYTHONWARNINGS='ignore:semaphore_tracker:UserWarning'
 
-EXP_NAME="obj_nav_mp3d_1_ep_slack-1e3"
+EXP_NAME="vo_3m_nod"
 #--gres gpu:8  # added 32 GB
 
 #$MODULESHOME/init/bash
@@ -56,8 +56,7 @@ unset LD_PRELOAD
 CMD_OPTS=$(cat "$CMD_OPTS_FILE")
 
 set -x
-#srun python -u -m habitat_baselines.run \
-#    --exp-config config_files/ddppo/ddppo_pointnav_2021.yaml \
-#    --run-type train ${CMD_OPTS}
-srun python -u  run_ddppo.py \
-    --run-type train ${CMD_OPTS}
+
+#srun python -u -m train_odometry --config-file config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_2m_fair.yaml
+
+srun python -u -m train_odometry_v2.py --config-file config_files/odometry/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo_gibson_res_fair.yaml --invert-rotations-train --invert-collisions
