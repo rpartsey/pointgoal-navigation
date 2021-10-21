@@ -1,27 +1,28 @@
-experiment_name: baseline_online_training_with_batch_buffer
+experiment_name: baseline_static_dataset_training_resized
 log_dir: ../experiments/hsim
-epochs: 100
+epochs: 50
 device: cuda:0
 seed: 1
 distrib_backend: NCCL
 compute_metrics_per_action: True
-batches_per_epoch: 2000
 
 trainer:
-  type: OnlineDatasetTrainer
+  type: StaticDatasetTrainer
 
 train:
-  batch_buffer:
-    params:
-      buffer_max_num_batches: 200
-      batch_size: 16
   dataset:
-    type: HSimDataset
+    type: EgoMotionDatasetResized
     params:
-      config_file_path: config_files/challenge_pointnav2021.local.rgbd.yaml
-      batch_size: 16
-      pairs_frac_per_episode: 0.25
-      n_episodes_per_scene: 3
+      data_root: /home/rpartsey/data/habitat/vo_datasets/resized
+      environment_dataset: gibson
+      split: train  # train_train
+      invert_rotations: False
+      num_points: null
+      not_use_turn_left: False
+      not_use_turn_right: False
+      not_use_move_forward: False
+      invert_collisions: False
+      not_use_rgb: False
     transforms:
       ConvertToTensor:
         rank: 1
@@ -35,25 +36,48 @@ train:
       PermuteChannels:
         rank: 3
         params: null
-      Resize:
-        rank: 4
-        params:
-          size: [ 180, 320 ]
-          interpolation: BILINEAR
+#      Resize:
+#        rank: 4
+#        params:
+#          size: [ 180, 320 ]
+#          interpolation: BILINEAR
       Normalize:
         rank: 5
         params: null
-    augmentations: null
+    augmentations:
+      VFlip:
+        params: null
   loader:
     type: EgoDataLoader
     params:
-      batch_size: null
-      num_workers: 4
+      batch_size: 16
+      num_workers: 10
+      shuffle: True
       sampler: null
-      multiprocessing_context: spawn
   metrics:
     - translation_mae
     - rotation_mae
+
+#train_val:
+#  dataset:
+#    type: EgoMotionDataset
+#    params:
+#      data_root: /home/rpartsey/data/habitat/vo_datasets/noisy
+#      environment_dataset: gibson
+#      split: train_val
+#      invert_rotations: False
+#      num_points: null
+#    augmentations: null
+#  loader:
+#    type: EgoDataLoader
+#    params:
+#      batch_size: 16
+#      num_workers: 12
+#      shuffle: False
+#      sampler: null
+#  metrics:
+#    - translation_mae
+#    - rotation_mae
 
 val:
   dataset:
@@ -105,6 +129,7 @@ val:
 model:
   type: VONetV3
   save: True
+  pretrained_checkpoint: null #/home/rpartsey/code/3d-navigation/pointgoal-navigation/experiments/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poseloss1._1._180x320_embedd_act_vflip_hc2021_vo3/best_checkpoint_36e.pt
   params:
     encoder:
       type: resnet18
@@ -123,7 +148,7 @@ model:
         output_size: 4
         p_dropout: 0.2
     collision_embedding_size: 0
-    action_embedding_size: 8
+    action_embedding_size: 16
 
 loss:
   type: PoseLossV2
@@ -138,4 +163,4 @@ optim:
 
 stopper:
   params:
-    patience: 50
+    patience: 15
