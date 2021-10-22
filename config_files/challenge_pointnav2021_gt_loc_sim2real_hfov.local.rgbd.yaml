@@ -14,7 +14,7 @@ SIMULATOR:
   RGB_SENSOR:
     WIDTH: 640
     HEIGHT: 480
-    HFOV: 70
+    HFOV: 55
     POSITION: [0, 0.61, 0]
     ORIENTATION: [0, 0, 0] # 0 degrees
     NOISE_MODEL: "GaussianNoiseModel"
@@ -24,7 +24,7 @@ SIMULATOR:
   DEPTH_SENSOR:
     WIDTH: 640
     HEIGHT: 480
-    HFOV: 70
+    HFOV: 55
     MIN_DEPTH: 0.0
     MAX_DEPTH: 10.0
     POSITION: [0, 0.61, 0]
