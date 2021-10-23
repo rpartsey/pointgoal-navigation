@@ -1,7 +1,7 @@
 VERBOSE: False
-BASE_TASK_CONFIG_PATH: "config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml"
+BASE_TASK_CONFIG_PATH: "config_files/challenge_pointnav2021_gt_loc_sim2real_hfov.local.rgbd.yaml"
 TRAINER_NAME: "ddppo"
-ENV_NAME: "NavRLEnv"
+ENV_NAME: "NavRLEnvSPLReward"
 SIMULATOR_GPU_ID: 0
 TORCH_GPU_ID: 0
 VIDEO_OPTION: []
@@ -15,7 +15,7 @@ CHECKPOINT_FOLDER: "data/new_checkpoints"
 NUM_UPDATES: -1
 TOTAL_NUM_STEPS: 2.5e9
 LOG_INTERVAL: 10
-NUM_CHECKPOINTS: 500
+NUM_CHECKPOINTS: 100
 # Force PyTorch to be single threaded as
 # this improves performance considerably
 FORCE_TORCH_SINGLE_THREADED: True
@@ -26,7 +26,7 @@ RL:
   POLICY:
     name: "PointNavResNetPolicy"
     OBS_TRANSFORMS:
-        ENABLED_TRANSFORMS: ("ResizeShortestEdge", "CenterCropper")
+        ENABLED_TRANSFORMS: ("ResizeShortestEdge",)
 
   PPO:
     # ppo params

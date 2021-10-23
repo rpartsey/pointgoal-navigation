@@ -6,29 +6,27 @@ SIMULATOR:
   TURN_ANGLE: 30
   AGENT_0:
     SENSORS: ['RGB_SENSOR', 'DEPTH_SENSOR']
-    HEIGHT: 0.61
+    HEIGHT: 0.88
     RADIUS: 0.18
   HABITAT_SIM_V0:
     GPU_DEVICE_ID: 0
     ALLOW_SLIDING: False
   RGB_SENSOR:
     WIDTH: 640
-    HEIGHT: 480
+    HEIGHT: 360
     HFOV: 70
-    POSITION: [0, 0.61, 0]
-    ORIENTATION: [0, 0, 0] # 0 degrees
+    POSITION: [0, 0.88, 0]
     NOISE_MODEL: "GaussianNoiseModel"
     NOISE_MODEL_KWARGS:
       intensity_constant: 0.1
 
   DEPTH_SENSOR:
     WIDTH: 640
-    HEIGHT: 480
+    HEIGHT: 360
     HFOV: 70
-    MIN_DEPTH: 0.0
+    MIN_DEPTH: 0.1
     MAX_DEPTH: 10.0
-    POSITION: [0, 0.61, 0]
-    ORIENTATION: [0, 0, 0] # 0 degrees
+    POSITION: [0, 0.88, 0]
     NOISE_MODEL: "RedwoodDepthNoiseModel"
 
   ACTION_SPACE_CONFIG: 'pyrobotnoisy'
@@ -45,11 +43,17 @@ TASK:
     GOAL_FORMAT: "POLAR"
     DIMENSIONALITY: 2
   GOAL_SENSOR_UUID: pointgoal_with_gps_compass
-  MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL', 'COLLISIONS']
+  MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL']
   SUCCESS:
     SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius
 
 DATASET:
   TYPE: PointNav-v1
-  SPLIT: train
-  DATA_PATH: data/datasets/pointnav/gibson/v2/{split}/{split}.json.gz
+  SPLIT: train_large
+  DATA_PATH: data/datasets/pointnav/habitat_mp3d/v1/{split}/{split}.json.gz
+#  SCENES_DIR: "habitat-challenge-data/data/scene_datasets/"
+
+#DATASET:
+#  TYPE: PointNav-v1
+#  SPLIT: train
+#  DATA_PATH: data/datasets/pointnav/gibson/v1/{split}/{split}.json.gz
