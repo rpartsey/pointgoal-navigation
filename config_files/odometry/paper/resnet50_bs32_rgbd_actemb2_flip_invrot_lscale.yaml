@@ -44,7 +44,7 @@ train:
       Normalize:
         rank: 5
         params: null
-    augmentations: null
+    augmentations:
       VFlip:
         params: null
   loader:
