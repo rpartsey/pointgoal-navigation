@@ -1,6 +1,7 @@
 import os
 import shutil
 import argparse
+import subprocess
 
 
 def parse_args():
@@ -37,5 +38,6 @@ if __name__ == '__main__':
         depth_scene_dir_path = os.path.join(depth_dir_path, scene)
 
         print(f'Deleting:\n\t* {rgb_scene_dir_path}\n\t* {depth_scene_dir_path}')
-        shutil.rmtree(rgb_scene_dir_path)
-        shutil.rmtree(depth_scene_dir_path)
+        #shutil.rmtree(rgb_scene_dir_path)
+        #shutil.rmtree(depth_scene_dir_path)
+        subprocess.run(["prm", "-r", rgb_scene_dir_path, depth_scene_dir_path])
