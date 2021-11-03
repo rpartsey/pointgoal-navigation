@@ -59,4 +59,4 @@ set -x
 
 #srun python -u -m train_odometry --config-file config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_2m_fair.yaml
 
-srun python -u -m train_odometry_v2.py --config-file config_files/odometry/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo_gibson_res_fair.yaml --invert-rotations-train --invert-collisions
+srun python -u train_odometry_v2.py --config-file config_files/odometry/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo_gibson_res_fair.yaml
