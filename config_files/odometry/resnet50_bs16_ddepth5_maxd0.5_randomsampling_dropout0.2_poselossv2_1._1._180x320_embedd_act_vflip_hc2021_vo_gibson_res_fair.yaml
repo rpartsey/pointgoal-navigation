@@ -21,7 +21,7 @@ train:
       not_use_turn_left: False
       not_use_turn_right: False
       not_use_move_forward: False
-      invert_collisions: False
+      invert_collisions: True
       not_use_rgb: False
     transforms:
       ConvertToTensor:
