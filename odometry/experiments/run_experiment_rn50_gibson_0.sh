@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=vo3mrn50
+#SBATCH --job-name=vo_410sc_resized
 #SBATCH --gres=gpu:8   #gpu:volta:8
 #SBATCH --constraint=volta32gb
 #SBATCH --nodes 8
@@ -18,7 +18,7 @@
 
 export MASTER_ADDR=$(srun --ntasks=1 hostname 2>&1 | tail -n1)
 
-EXP_NAME="vo_3m_nod"
+EXP_NAME="vo_410sc_resized"
 #--gres gpu:8  # added 32 GB
 
 #$MODULESHOME/init/bash
@@ -59,4 +59,4 @@ set -x
 
 #srun python -u -m train_odometry --config-file config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_2m_fair.yaml
 
-srun python -u -m train_odometry_v2.py --config-file config_files/odometry/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo_gibson_res_fair.yaml --invert-rotations-train --invert-collisions
+srun python -u train_odometry_v2.py --config-file config_files/odometry/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo_gibson_res_fair.yaml

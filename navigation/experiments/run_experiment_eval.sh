@@ -10,7 +10,7 @@
 #SBATCH --signal=USR1@600
 #SBATCH --mail-user=maksymets@gmail.com
 #SBATCH --mail-type=ALL
-#SBATCH --partition=learnlab
+#SBATCH --partition=devlab
 #SBATCH --open-mode=append
 #SBATCH --comment="EmbodiedAI Challenges 2021"
 
