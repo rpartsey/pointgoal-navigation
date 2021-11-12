@@ -2,7 +2,7 @@
 #SBATCH --job-name=vo3mrn50
 #SBATCH --gres=gpu:8   #gpu:volta:8
 #SBATCH --constraint=volta32gb
-#SBATCH --nodes 8
+#SBATCH --nodes 1
 #SBATCH --cpus-per-task 10
 #SBATCH --ntasks-per-node 8
 #SBATCH --mem=450GB #maybe 450, was 500GB
@@ -10,11 +10,11 @@
 #SBATCH --signal=USR1@600
 #SBATCH --mail-user=maksymets@gmail.com
 #SBATCH --mail-type=ALL
-#SBATCH --partition=prioritylab
+#SBATCH --partition=devlab
 #SBATCH --open-mode=append
 #SBATCH --comment="EmbodiedAI Challenges 2021"
-#SBATCH --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_gibson_3m_no_ddepth_rn50/log.out
-#SBATCH --error=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_gibson_3m_no_ddepth_rn50/log.err
+#SBATCH --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_2/log.out
+#SBATCH --error=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_2/log.err
 
 export MASTER_ADDR=$(srun --ntasks=1 hostname 2>&1 | tail -n1)
 
