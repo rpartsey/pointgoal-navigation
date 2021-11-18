@@ -38,16 +38,16 @@ SIMULATOR:
 TASK:
   TYPE: Nav-v0
   SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius
-  SENSORS: ['POINTGOAL_WITH_EGO_PREDICTION_SENSOR']
-  POINTGOAL_WITH_EGO_PREDICTION_SENSOR:
-    TYPE: PointGoalWithEgoPredictionsSensor
+  SENSORS: ['EGOMOTION_POINTGOAL_SENSOR']
+  EGOMOTION_POINTGOAL_SENSOR:
+    TYPE: EgomotionPointGoalSensor
     GOAL_FORMAT: "POLAR"
     DIMENSIONALITY: 2
     TRAIN_CONFIG_PATH: /home/rpartsey/code/3d-navigation/related_works/pointgoal-navigation/pointgoal-navigation/experiments/smoke/config.yaml
     CHECKPOINT_PATH: /home/rpartsey/code/3d-navigation/related_works/pointgoal-navigation/pointgoal-navigation/experiments/smoke/best_checkpoint.pt
-    GPU_DEVICE_ID: 0
-    ROTATION_REGULARIZATION: False
-  GOAL_SENSOR_UUID: pointgoal_with_ego_predictions
+    SWAP_ON: False
+    FLIP_ON: False
+  GOAL_SENSOR_UUID: egomotion_pointgoal
   MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL']
   SUCCESS:
     SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius

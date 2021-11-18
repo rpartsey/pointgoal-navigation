@@ -1,2 +1,2 @@
-from .egomotion_pg_sensor import PointGoalWithEgoPredictionsSensor
+from .egomotion_pg_sensor import EgomotionPointGoalSensor
 from .egomotion_sensor import EgomotionSensor
