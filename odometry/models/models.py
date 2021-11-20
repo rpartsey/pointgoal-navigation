@@ -21,6 +21,45 @@ def init_distributed(model, device, find_unused_params: bool = True):
     return ddp
 
 
+class Normalize(nn.Module):
+    def __init__(self, in_channels):
+        super().__init__()
+
+        if in_channels == 8:
+            mean = torch.tensor(
+                [
+                    [[0.1749]],
+                    [[0.5565]],
+                    [[0.5044]],
+                    [[0.4595]],
+                    [[0.1735]],
+                    [[0.5561]],
+                    [[0.5043]],
+                    [[0.4597]],
+                ]
+            )
+
+            var = torch.tensor(
+                [
+                    [[0.0213]],
+                    [[0.0442]],
+                    [[0.0516]],
+                    [[0.0617]],
+                    [[0.0212]],
+                    [[0.0444]],
+                    [[0.0518]],
+                    [[0.0619]],
+                ]
+            )
+        else:
+            raise RuntimeError(f"Don't know how to handle {in_channels} channels")
+
+        self.register_buffer("_inv_stddev", torch.rsqrt(var.clamp(min=1e-2)))
+        self.register_buffer("_negative_mean_mul_inv_sttdev", -mean * self._inv_stddev)
+
+    def forward(self, x):
+        return torch.addcmul(self._negative_mean_mul_inv_sttdev, self._inv_stddev, x)
+
 class DropoutPart(nn.Module):
     def __init__(self, p, embedding_size):
         super().__init__()
@@ -155,6 +194,7 @@ class VONetV2(VONet):
         )
 
         encoder = nn.Sequential(
+            Normalize(encoder_params.in_channels),
             backbone,
             nn.Conv2d(
                 backbone.final_channels,
