@@ -2,7 +2,7 @@
 #SBATCH --job-name=ddppo-object-nav
 #SBATCH --gres=gpu:8   #gpu:volta:8
 #SBATCH --constraint=volta32gb
-#SBATCH --nodes 16
+#SBATCH --nodes 8
 #SBATCH --cpus-per-task 10
 #SBATCH --ntasks-per-node 8
 #SBATCH --mem=450GB #maybe 450, was 500GB
@@ -10,7 +10,7 @@
 #SBATCH --signal=USR1@600
 #SBATCH --mail-user=maksymets@gmail.com
 #SBATCH --mail-type=ALL
-#SBATCH --partition=learnlab
+#SBATCH --partition=prioritylab
 #SBATCH --open-mode=append
 #SBATCH --comment="CVPR 2021"
 

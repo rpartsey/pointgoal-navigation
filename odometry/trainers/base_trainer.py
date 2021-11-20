@@ -88,7 +88,7 @@ class BaseTrainer:
     def init_experiment(self):
         if os.path.exists(self.config.experiment_dir):
             def ask():
-                return input(f'Experiment "{self.config.experiment_name}" already exists. Delete (y/n)?')
+                return input(f'Experiment "{self.config.experiment_dir}" already exists. Delete (y/n)?')
 
             answer = ask()
             while answer not in ('y', 'n'):

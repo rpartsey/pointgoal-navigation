@@ -111,6 +111,8 @@ class StaticDatasetTrainer(BaseTrainer):
             if rank0_only():
                 print(f'{datetime.now()} Epoch {epoch}')
 
+            if self.is_distributed():
+                self.train_loader.sampler.set_epoch(epoch)
             train_metrics = self.train_epoch()
             if self.is_distributed():
                 train_metrics = self.coalesce_post_step(train_metrics, self.device)
