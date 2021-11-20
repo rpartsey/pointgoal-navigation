@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-
-# Copyright (c) Facebook, Inc. and its affiliates.
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
-
 import argparse
 import copy
 import os
@@ -12,7 +5,6 @@ import random
 from collections import OrderedDict
 from typing import Optional, Union, Dict, Any
 
-import quaternion
 import numba
 import numpy as np
 import torch
@@ -21,7 +13,6 @@ from gym.spaces import Dict as SpaceDict
 from gym.spaces import Discrete
 
 import habitat
-import habitat_sim
 from habitat.config import Config
 from habitat.core.agent import Agent
 from habitat.core.simulator import Observations
@@ -31,7 +22,6 @@ from habitat.tasks.nav.nav import (
 )
 from habitat.tasks.nav.shortest_path_follower import ShortestPathFollower
 from habitat.tasks.nav.object_nav_task import ObjectGoalSensor
-from habitat.tasks.utils import cartesian_to_polar
 from habitat_baselines.common.baseline_registry import baseline_registry
 from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_batch,
@@ -44,20 +34,9 @@ from habitat_baselines.utils.common import batch_obs
 from odometry.config.default import get_config as get_vo_config
 from odometry.dataset import make_transforms
 from odometry.models import make_model
-from odometry.utils import transform_batch
-from odometry.utils.utils import polar_to_cartesian
+from habitat_extensions.sensors.egomotion_pg_sensor import PointGoalEstimator
 
 
-ROTATION_ACTIONS = {
-    # 0   STOP
-    # 1   MOVE_FORWARD
-    2,  # TURN_LEFT
-    3,  # TURN_RIGHT
-}
-INVERSE_ACTION = {
-    2: 3,
-    3: 2
-}
 ACTION_INDEX_TO_NAME = {
     0: 'STOP',
     1: 'MOVE_FORWARD',
@@ -74,119 +53,6 @@ def get_action_name(action_index: int):
 def _seed_numba(seed: int):
     random.seed(seed)
     np.random.seed(seed)
-
-
-# TODO: check if 'polar_to_cartesian' transformation works as expected
-class PointgoalEstimator:
-    def __init__(
-            self,
-            obs_transforms,
-            vo_model,
-            action_embedding_on,
-            depth_discretization_on,
-            rotation_regularization_on,
-            vertical_flip_on,
-            device
-    ):
-        self.obs_transforms = obs_transforms
-        self.vo_model = vo_model
-        self.action_embedding_on = action_embedding_on
-        self.depth_discretization_on = depth_discretization_on
-        self.rotation_regularization_on = rotation_regularization_on
-        self.vertical_flip_on = vertical_flip_on
-        self.prev_observations = None
-        self.pointgoal = None
-        self.device = device
-
-    def _compute_pointgoal(self, x, y, z, yaw):
-        noisy_translation = np.asarray([x, y, z], dtype=np.float32)
-        noisy_rot_mat = quaternion.as_rotation_matrix(
-            habitat_sim.utils.quat_from_angle_axis(theta=yaw, axis=np.asarray([0, 1, 0]))
-        )
-
-        noisy_T_curr2prev_state = np.zeros((4, 4), dtype=np.float32)
-        noisy_T_curr2prev_state[3, 3] = 1.
-        noisy_T_curr2prev_state[:3, 3] = noisy_translation
-        noisy_T_curr2prev_state[:3, :3] = noisy_rot_mat
-
-        return np.dot(
-            np.linalg.inv(noisy_T_curr2prev_state),  # noisy_T_prev2curr_state
-            np.concatenate((self.pointgoal, np.asarray([1.], dtype=np.float32)), axis=0)
-        )
-
-    def __call__(self, observations, action):
-        visual_obs = {
-            'source_rgb': self.prev_observations['rgb'],
-            'target_rgb': observations['rgb'],
-            'source_depth': self.prev_observations['depth'],
-            'target_depth': observations['depth']
-        }
-        egomotion_estimates = self._compute_egomotion(visual_obs, action)
-
-        if self.vertical_flip_on:
-            vflip_visual_obs = {
-                'source_rgb': np.fliplr(self.prev_observations['rgb']).copy(),
-                'target_rgb': np.fliplr(observations['rgb']).copy(),
-                'source_depth': np.fliplr(self.prev_observations['depth']).copy(),
-                'target_depth': np.fliplr(observations['depth']).copy()
-            }
-            vflip_action = INVERSE_ACTION[action] if action in ROTATION_ACTIONS else action
-            vflip_egomotion_estimates = self._compute_egomotion(vflip_visual_obs, vflip_action)
-
-            egomotion_estimates = (egomotion_estimates + vflip_egomotion_estimates * torch.tensor([-1, 1, 1, -1])) / 2
-
-        direction_vector_agent_cart = self._compute_pointgoal(*egomotion_estimates)
-        assert direction_vector_agent_cart[3] == 1.
-
-        self.pointgoal = direction_vector_agent_cart[:3]
-        self.prev_observations = observations
-
-        rho, phi = cartesian_to_polar(-direction_vector_agent_cart[2], direction_vector_agent_cart[0])
-        direction_vector_agent_polar = np.array([rho, -phi], dtype=np.float32)
-
-        return direction_vector_agent_polar
-
-    def reset(self, observations):
-        self.prev_observations = observations
-        self.pointgoal = polar_to_cartesian(*observations[PointGoalSensor.cls_uuid])
-
-    def _compute_egomotion(self, visual_obs, action):
-        if self.action_embedding_on:
-            visual_obs['action'] = action - 1  # shift all action ids as we don't use 0 - STOP
-
-        visual_obs = self.obs_transforms(visual_obs)
-        batch = {k: v.unsqueeze(0) for k, v in visual_obs.items()}
-
-        if self.rotation_regularization_on and (action in ROTATION_ACTIONS):
-            batch.update({
-                'source_rgb': torch.cat([batch['source_rgb'], batch['target_rgb']], 0),
-                'target_rgb': torch.cat([batch['target_rgb'], batch['source_rgb']], 0),
-                'source_depth': torch.cat([batch['source_depth'], batch['target_depth']], 0),
-                'target_depth': torch.cat([batch['target_depth'], batch['source_depth']], 0),
-            })
-            if self.depth_discretization_on:
-                batch.update({
-                    'source_depth_discretized': torch.cat([batch['source_depth_discretized'], batch['target_depth_discretized']], 0),
-                    'target_depth_discretized': torch.cat([batch['target_depth_discretized'], batch['source_depth_discretized']], 0)
-                })
-            if self.action_embedding_on:
-                batch_action = batch['action']
-                inverse_action = batch_action.clone().fill_(INVERSE_ACTION[action] - 1)
-                batch.update({
-                    'action': torch.cat([batch_action, inverse_action], 0)
-                })
-
-        batch, embeddings, _ = transform_batch(batch)
-        batch = batch.to(self.device)
-        for k, v in embeddings.items():
-            embeddings[k] = v.to(self.device)
-
-        with torch.no_grad():
-            egomotion = self.vo_model(batch, **embeddings)
-            if egomotion.size(0) == 2:
-                egomotion = (egomotion[:1] + -egomotion[1:]) / 2
-
-        return egomotion.squeeze(0).cpu()
 
 
 class PPOAgent(Agent):
@@ -325,7 +191,7 @@ class PPOAgent(Agent):
 
 # TODO: come up with a more descriptive class name
 class PPOAgentV2(PPOAgent):
-    def __init__(self, config: Config, pointgoal_estimator: PointgoalEstimator):
+    def __init__(self, config: Config, pointgoal_estimator: PointGoalEstimator):
         super().__init__(config)
         self.pointgoal_estimator = pointgoal_estimator
 
@@ -434,7 +300,7 @@ def main():
         vo_model.load_state_dict(checkpoint)
         vo_model.eval()
 
-        pointgoal_estimator = PointgoalEstimator(
+        pointgoal_estimator = PointGoalEstimator(
             obs_transforms=obs_transforms,
             vo_model=vo_model,
             action_embedding_on=vo_config.model.params.action_embedding_size > 0,
