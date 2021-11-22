@@ -52,7 +52,7 @@ class PointGoalEstimator:
         self.vertical_flip_on = vertical_flip_on
         self.prev_observations = None
         self.pointgoal = None
-        self.egomotion = None
+        self.egomotion = np.array([0, 0, 0, 0], dtype=np.float32)
         self.device = device
 
     def _compute_pointgoal(self, x, y, z, yaw):
@@ -108,6 +108,7 @@ class PointGoalEstimator:
     def reset(self, observations):
         self.prev_observations = observations
         self.pointgoal = polar_to_cartesian(*observations[PointGoalSensor.cls_uuid])
+        self.egomotion = np.array([0, 0, 0, 0], dtype=np.float32)
 
     def _compute_egomotion(self, visual_obs, action):
         if self.action_embedding_on:
