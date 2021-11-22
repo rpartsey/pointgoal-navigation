@@ -52,6 +52,7 @@ class PointGoalEstimator:
         self.vertical_flip_on = vertical_flip_on
         self.prev_observations = None
         self.pointgoal = None
+        self.egomotion = None
         self.device = device
 
     def _compute_pointgoal(self, x, y, z, yaw):
@@ -90,6 +91,8 @@ class PointGoalEstimator:
             vflip_egomotion_estimates = self._compute_egomotion(vflip_visual_obs, vflip_action)
 
             egomotion_estimates = (egomotion_estimates + vflip_egomotion_estimates * torch.tensor([-1, 1, 1, -1])) / 2
+
+        self.egomotion = egomotion_estimates
 
         direction_vector_agent_cart = self._compute_pointgoal(*egomotion_estimates)
         assert direction_vector_agent_cart[3] == 1.
