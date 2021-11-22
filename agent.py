@@ -1,18 +1,23 @@
 import argparse
 import copy
+import gzip
+import json
 import os
 import random
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from typing import Optional, Union, Dict, Any
 
+import cv2
 import numba
 import numpy as np
+import quaternion
 import torch
 from gym.spaces import Box
 from gym.spaces import Dict as SpaceDict
 from gym.spaces import Discrete
 
 import habitat
+from habitat import Benchmark as BaseBenchmark
 from habitat.config import Config
 from habitat.core.agent import Agent
 from habitat.core.simulator import Observations
@@ -22,6 +27,9 @@ from habitat.tasks.nav.nav import (
 )
 from habitat.tasks.nav.shortest_path_follower import ShortestPathFollower
 from habitat.tasks.nav.object_nav_task import ObjectGoalSensor
+from habitat.tasks.utils import cartesian_to_polar
+from habitat.utils.geometry_utils import quaternion_rotate_vector
+from habitat.utils.visualizations import maps
 from habitat_baselines.common.baseline_registry import baseline_registry
 from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_batch,
@@ -30,6 +38,8 @@ from habitat_baselines.common.obs_transformers import (
 )
 from habitat_baselines.config.default import get_config
 from habitat_baselines.utils.common import batch_obs
+from habitat.core.logging import logger
+from tqdm import tqdm
 
 from odometry.config.default import get_config as get_vo_config
 from odometry.dataset import make_transforms
@@ -227,22 +237,184 @@ class PPOAgentV2(PPOAgent):
         return super().act(observations)
 
 
-class ShortestPathFollowerAgent(Agent):
-    def __init__(self, env, goal_radius):
-        self.env = env
-        self.shortest_path_follower = ShortestPathFollower(
-            sim=env.sim,
-            goal_radius=goal_radius,
-            return_one_hot=False
-        )
+def get_polar_angle(ref_rotation):
+    # agent_state = self._sim.get_agent_state()
+    # quaternion is in x, y, z, w format
+    # ref_rotation = agent_state.rotation
 
-    def act(self, observations) -> Union[int, str, Dict[str, Any]]:
-        return self.shortest_path_follower.get_next_action(
-            self.env.current_episode.goals[0].position
-        )
+    heading_vector = quaternion_rotate_vector(
+        ref_rotation.inverse(), np.array([0, 0, -1])
+    )
 
-    def reset(self) -> None:
-        pass
+    phi = cartesian_to_polar(-heading_vector[2], heading_vector[0])[1]
+    z_neg_z_flip = np.pi
+    return np.array(phi) + z_neg_z_flip
+
+
+def get_vo_agent_position(scene_agent_state, vo_pointgoal, scene_pointgoal):
+    T_agent_to_scene = np.zeros((4, 4), dtype=np.float32)
+    T_agent_to_scene[3, 3] = 1.
+    T_agent_to_scene[:3, 3] = scene_agent_state.position
+    T_agent_to_scene[:3, :3] = quaternion.as_rotation_matrix(scene_agent_state.rotation)
+
+    gt_pointgoal = np.dot(
+        np.linalg.inv(T_agent_to_scene),  # T_scene_to_agent
+        np.concatenate((scene_pointgoal, np.asarray([1.])), axis=0)
+    )[:3]
+
+    vo_agent_position = scene_agent_state.position + (vo_pointgoal - gt_pointgoal)
+
+    return vo_agent_position
+
+
+class Benchmark(BaseBenchmark):
+    def __init__(self, config_path, dest_tdm_trajectory_dir, eval_remote=False):
+        self.dest_tdm_trajectory_dir = dest_tdm_trajectory_dir
+        super().__init__(config_path, eval_remote=eval_remote)
+
+    def submit(self, agent):
+        metrics = super().evaluate(agent)
+        for k, v in metrics.items():
+            logger.info("{}: {}".format(k, v))
+
+    def local_evaluate(
+            self, agent: "PPOAgentV2", num_episodes: Optional[int] = None
+    ) -> Dict[str, float]:
+        if num_episodes is None:
+            num_episodes = len(self._env.episodes)
+        else:
+            assert num_episodes <= len(self._env.episodes), (
+                "num_episodes({}) is larger than number of episodes "
+                "in environment ({})".format(
+                    num_episodes, len(self._env.episodes)
+                )
+            )
+
+        assert num_episodes > 0, "num_episodes should be greater than 0"
+
+        topdown_map_dir = f'{self.dest_tdm_trajectory_dir}/topdown_map'
+        json_dir = f'{self.dest_tdm_trajectory_dir}/json'
+
+        os.makedirs(topdown_map_dir)
+        os.makedirs(json_dir)
+
+        env = self._env
+        sim = self._env.sim
+
+        agg_metrics: Dict = defaultdict(float)
+
+        count_episodes = 0
+
+        with tqdm(total=num_episodes) as pbar:
+            while count_episodes < num_episodes:
+                agent.reset()
+                observations = env.reset()
+
+                current_episode = env.current_episode
+                agent_state = sim.get_agent_state()
+                spf_points = [point.tolist() for point in sim.get_straight_shortest_path_points(
+                    agent_state.position, current_episode.goals[0].position
+                )]
+                vo_agent_states = {
+                    'position': [agent_state.position.tolist()],
+                    'rotation': [get_polar_angle(agent_state.rotation)]
+                }
+                gt_agent_states = {
+                    'position': [agent_state.position.tolist()],
+                    'rotation': [get_polar_angle(agent_state.rotation)]
+                }
+
+                while not env.episode_over:
+                    action = agent.act(observations)
+                    observations = self._env.step(action)
+
+                    vo_agent_egomotion = agent.pointgoal_estimator.egomotion
+                    vo_agent_position = get_vo_agent_position(
+                        agent_state, agent.pointgoal_estimator.pointgoal, current_episode.goals[0].position
+                    )
+                    vo_agent_states['position'].append(vo_agent_position.tolist())
+                    vo_agent_states['rotation'].append(vo_agent_states['rotation'][-1]+vo_agent_egomotion[3])
+
+                    agent_state = sim.get_agent_state()
+                    gt_agent_states['position'].append(agent_state.position.tolist())
+                    gt_agent_states['rotation'].append(get_polar_angle(agent_state.rotation))
+
+                vo_agent_egomotion = agent.pointgoal_estimator.egomotion
+                vo_agent_position = get_vo_agent_position(
+                    agent_state, agent.pointgoal_estimator.pointgoal, current_episode.goals[0].position
+                )
+                vo_agent_states['position'].append(vo_agent_position.tolist())
+                vo_agent_states['rotation'].append(vo_agent_states['rotation'][-1] + vo_agent_egomotion[3])
+
+                vo_agent_states['position'] = vo_agent_states['position'][1:]
+                vo_agent_states['rotation'] = vo_agent_states['rotation'][1:]
+
+                metrics = env.get_metrics()
+                metrics.update(current_episode.info)
+
+                metric_strs = []
+                for k in ('spl', 'success', 'softspl', 'distance_to_goal', 'geodesic_distance'):
+                    metric_strs.append(f"{k}={metrics[k]:.2f}")
+
+                top_down_map_config = env._config.TASK.TOP_DOWN_MAP
+                top_down_map = maps.get_topdown_map_from_sim(
+                    env.sim,
+                    map_resolution=top_down_map_config.MAP_RESOLUTION,
+                    draw_border=top_down_map_config.DRAW_BORDER,
+                )
+
+                spf_points = [
+                    maps.to_grid(p[2], p[0], top_down_map.shape[0:2], sim=sim)
+                    for p in spf_points
+                ]
+                vo_agent_states['position'] = [
+                    maps.to_grid(p[2], p[0], top_down_map.shape[0:2], sim=sim)
+                    for p in vo_agent_states['position']
+                ]
+                gt_agent_states['position'] = [
+                    maps.to_grid(p[2], p[0], top_down_map.shape[0:2], sim=sim)
+                    for p in gt_agent_states['position']
+                ]
+
+                scene_name = os.path.basename(current_episode.scene_id).split('.')[0]
+                episode_id = current_episode.episode_id.zfill(3)
+                top_down_map_name = f'{scene_name}_{episode_id}_' + '_'.join(metric_strs) + '.png'
+                top_down_map_path = f'{topdown_map_dir}/{top_down_map_name}'
+
+                cv2.imwrite(top_down_map_path, top_down_map)
+
+                json_name = f'{scene_name}_{episode_id}.json.gz'
+                json_path = f'{json_dir}/{json_name}'
+
+                goal = current_episode.goals[0].position
+                start = current_episode.start_position
+
+                meta = {
+                    'top_down_map_path': top_down_map_path,
+                    'gt_agent_states': gt_agent_states,
+                    'vo_agent_states': vo_agent_states,
+                    'spf_points': spf_points,
+                    'episode': {
+                        'scene_name': scene_name,
+                        'episode_id': episode_id,
+                        'goal': maps.to_grid(goal[2], goal[0], top_down_map.shape[0:2], sim=sim),
+                        'start': maps.to_grid(start[2], start[0], top_down_map.shape[0:2], sim=sim),
+                        'metrics': metrics
+                    }
+                }
+
+                with gzip.open(json_path, 'wt') as f:
+                    json.dump(meta, f)
+
+                for m, v in metrics.items():
+                    agg_metrics[m] += v
+                count_episodes += 1
+
+                pbar.update()
+
+        avg_metrics = {k: v / count_episodes for k, v in agg_metrics.items()}
+
+        return avg_metrics
 
 
 def main():
@@ -253,8 +425,10 @@ def main():
         choices=["PPOAgentV2", "PPOAgent", "ShortestPathFollowerAgent"],
         default="PPOAgentV2"
     )
-    parser.add_argument("--input-type", type=str, choices=["rgb", "depth", "rgbd"], default="rgbd")
-    parser.add_argument("--evaluation", type=str, required=True, choices=["local", "remote"])
+    parser.add_argument("--input-type", type=str, choices=["rgb", "depth", "rgbd"], default="depth")
+    parser.add_argument("--evaluation", type=str, default="local")
+    parser.add_argument("--dest-dir", type=str, default="/home/rpartsey/code/3d-navigation/pointgoal-navigation/navtrajectory/val_mini")
+    parser.add_argument("--challenge-config-path", type=str, default="config_files/challenge_pointnav2021.local.rgbd.yaml")
     parser.add_argument("--ddppo-config-path", type=str, required=False)
     parser.add_argument("--ddppo-checkpoint-path", type=str, required=False)
     parser.add_argument("--vo-config-path", type=str, default="vo_config.yaml")
@@ -265,9 +439,9 @@ def main():
     parser.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()
 
-    config_paths = os.environ["CHALLENGE_CONFIG_FILE"]
+    config_path = args.challenge_config_path
     config = get_config(
-        args.ddppo_config_path, ["BASE_TASK_CONFIG_PATH", config_paths]
+        args.ddppo_config_path, ["BASE_TASK_CONFIG_PATH", config_path]
     ).clone()
     config.defrost()
     config.RANDOM_SEED = args.seed
@@ -276,52 +450,34 @@ def main():
     config.MODEL_PATH = args.ddppo_checkpoint_path
     config.freeze()
 
-    if args.evaluation == "local":
-        challenge = habitat.Challenge(eval_remote=False)
-        challenge._env.seed(config.RANDOM_SEED)
-    else:
-        challenge = habitat.Challenge(eval_remote=True)
+    challenge = Benchmark(config_path, args.dest_dir, eval_remote=False)
+    challenge._env.seed(config.RANDOM_SEED)
 
-    if args.agent_type == PPOAgent.__name__:
-        agent = PPOAgent(config)
+    vo_config = get_vo_config(args.vo_config_path, new_keys_allowed=True)
+    device = torch.device('cuda', args.pth_gpu_id)
 
-    elif args.agent_type == PPOAgentV2.__name__:
-        vo_config = get_vo_config(args.vo_config_path, new_keys_allowed=True)
-        device = torch.device('cuda', args.pth_gpu_id)
+    obs_transforms = make_transforms(vo_config.val.dataset.transforms)
+    vo_model = make_model(vo_config.model).to(device)
+    checkpoint = torch.load(args.vo_checkpoint_path, map_location=device)
 
-        obs_transforms = make_transforms(vo_config.val.dataset.transforms)
-        vo_model = make_model(vo_config.model).to(device)
-        checkpoint = torch.load(args.vo_checkpoint_path, map_location=device)
-        # if config.distrib_backend:
-        new_checkpoint = OrderedDict()
-        for k, v in checkpoint.items():
-            new_checkpoint[k.replace('module.', '')] = v
-        checkpoint = new_checkpoint
-        vo_model.load_state_dict(checkpoint)
-        vo_model.eval()
+    new_checkpoint = OrderedDict()
+    for k, v in checkpoint.items():
+        new_checkpoint[k.replace('module.', '')] = v
+    checkpoint = new_checkpoint
+    vo_model.load_state_dict(checkpoint)
+    vo_model.eval()
 
-        pointgoal_estimator = PointGoalEstimator(
-            obs_transforms=obs_transforms,
-            vo_model=vo_model,
-            action_embedding_on=vo_config.model.params.action_embedding_size > 0,
-            depth_discretization_on=(hasattr(vo_config.val.dataset.transforms, 'DiscretizeDepth')
-                                     and vo_config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0),
-            rotation_regularization_on=args.rotation_regularization_on,
-            vertical_flip_on=args.vertical_flip_on,
-            device=device
-        )
-        agent = PPOAgentV2(config, pointgoal_estimator)
-
-    elif args.agent_type == ShortestPathFollowerAgent.__name__:
-        assert args.evaluation == "local", "ShortestPathFollowerAgent supports only local evaluation"
-
-        agent = ShortestPathFollowerAgent(
-            env=challenge._env,
-            goal_radius=config.TASK_CONFIG.TASK.SUCCESS.SUCCESS_DISTANCE
-        )
-
-    else:
-        raise ValueError(f'{args.agent_type} agent type doesn\'t exist!' )
+    pointgoal_estimator = PointGoalEstimator(
+        obs_transforms=obs_transforms,
+        vo_model=vo_model,
+        action_embedding_on=vo_config.model.params.action_embedding_size > 0,
+        depth_discretization_on=(hasattr(vo_config.val.dataset.transforms, 'DiscretizeDepth')
+                                 and vo_config.val.dataset.transforms.DiscretizeDepth.params.n_channels > 0),
+        rotation_regularization_on=args.rotation_regularization_on,
+        vertical_flip_on=args.vertical_flip_on,
+        device=device
+    )
+    agent = PPOAgentV2(config, pointgoal_estimator)
 
     challenge.submit(agent)
 
