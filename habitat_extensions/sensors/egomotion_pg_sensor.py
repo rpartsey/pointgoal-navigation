@@ -92,6 +92,7 @@ class PointGoalEstimator:
 
             egomotion_estimates = (egomotion_estimates + vflip_egomotion_estimates * torch.tensor([-1, 1, 1, -1])) / 2
 
+        egomotion_estimates = egomotion_estimates.cpu().numpy()
         self.egomotion = egomotion_estimates
 
         direction_vector_agent_cart = self._compute_pointgoal(*egomotion_estimates)
