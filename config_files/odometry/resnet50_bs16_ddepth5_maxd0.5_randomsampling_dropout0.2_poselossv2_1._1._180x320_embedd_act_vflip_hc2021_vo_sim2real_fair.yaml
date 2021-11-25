@@ -1,4 +1,4 @@
-experiment_name: resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_2
+experiment_name: resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo_sim2real_8nd
 log_dir: ../experiments
 epochs: 150
 device: cuda:0
@@ -6,36 +6,44 @@ seed: 1
 distrib_backend: NCCL
 compute_metrics_per_action: True
 
-transforms:
-  ConvertToTensor:
-    rank: 1
-    params: null
-    #  DiscretizeDepth:
-    #rank: 2
-    #params:
-    #  n_channels: 5
-    #  min_depth: 0
-    #  max_depth: 0.5
-  PermuteChannels:
-    rank: 3
-    params: null
-  Resize:
-    rank: 4
-    params:
-      size: [180, 320]
-      interpolation: BILINEAR
-  Normalize:
-    rank: 5
-    params: null
+trainer:
+  type: StaticDatasetTrainer
 
 train:
   dataset:
-    type: EgoMotionDataset
+    type: EgoMotionDatasetResized
     params:
-      data_root: /checkpoint/maksymets/data/vo_datasets_3m/ #/private/home/maksymets/pointgoal-navigation/data/vo_datasets_3m/ # /home/rpartsey/data/habitat/vo_datasets/noisy_plus_noisy_big/
+      data_root: /checkpoint/maksymets/data/vo_datasets_resized_full_sim2real_naoki #/private/home/maksymets/pointgoal-navigation/data/vo_datasets_3m
       environment_dataset: gibson
       split: train  # train_train
       invert_rotations: True
+      num_points: null
+      not_use_turn_left: False
+      not_use_turn_right: False
+      not_use_move_forward: False
+      invert_collisions: True
+      not_use_rgb: False
+    transforms:
+      ConvertToTensor:
+        rank: 1
+        params: null
+#      DiscretizeDepth:
+#        rank: 2
+#        params:
+#          n_channels: 5
+#          min_depth: 0
+#          max_depth: 0.5
+      PermuteChannels:
+        rank: 3
+        params: null
+#      Resize:
+#        rank: 4
+#        params:
+#          size: [ 180, 320 ]
+#          interpolation: BILINEAR
+#      Normalize:
+#        rank: 5
+#        params: null
     augmentations:
       VFlip:
         params: null
@@ -75,10 +83,37 @@ val:
   dataset:
     type: EgoMotionDataset
     params:
-      data_root: /checkpoint/maksymets/data/vo_datasets/ # /private/home/maksymets/pointgoal-navigation/data/vo_datasets/
+      data_root: /checkpoint/maksymets/data/vo_datasets_resized_full_sim2real_naoki #/private/home/maksymets/pointgoal-navigation/data/vo_datasets/
       environment_dataset: gibson
       split: val
       invert_rotations: False
+      num_points: null
+      not_use_turn_left: False
+      not_use_turn_right: False
+      not_use_move_forward: False
+      invert_collisions: False
+      not_use_rgb: False
+    transforms:
+      ConvertToTensor:
+        rank: 1
+        params: null
+      #      DiscretizeDepth:
+      #        rank: 2
+      #        params:
+      #          n_channels: 5
+      #          min_depth: 0
+      #          max_depth: 0.5
+      PermuteChannels:
+        rank: 3
+        params: null
+        # Resize:
+        #   rank: 4
+        #   params:
+        #     size: [ 180, 320 ]
+        #     interpolation: BILINEAR
+        # Normalize:
+        #   rank: 5
+        #   params: null
     augmentations: null
   loader:
     type: EgoDataLoader

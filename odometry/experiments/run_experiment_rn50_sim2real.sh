@@ -2,7 +2,7 @@
 #SBATCH --job-name=vo3mrn50
 #SBATCH --gres=gpu:8   #gpu:volta:8
 #SBATCH --constraint=volta32gb
-#SBATCH --nodes 1
+#SBATCH --nodes 8
 #SBATCH --cpus-per-task 10
 #SBATCH --ntasks-per-node 8
 #SBATCH --mem=450GB #maybe 450, was 500GB
@@ -10,11 +10,11 @@
 #SBATCH --signal=USR1@600
 #SBATCH --mail-user=maksymets@gmail.com
 #SBATCH --mail-type=ALL
-#SBATCH --partition=devlab
+#SBATCH --partition=prioritylab
 #SBATCH --open-mode=append
-#SBATCH --comment="EmbodiedAI Challenges 2021"
-#SBATCH --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_2/log.out
-#SBATCH --error=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_2/log.err
+#SBATCH --comment="CVPR 15 Nov"
+#SBATCH --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_sim2real_rn50_8nd/log.out
+#SBATCH --error=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/odometry_sim2real_rn50_8nd/log.err
 
 export MASTER_ADDR=$(srun --ntasks=1 hostname 2>&1 | tail -n1)
 
@@ -59,4 +59,4 @@ set -x
 
 #srun python -u -m train_odometry --config-file config_files/odometry/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_2m_fair.yaml
 
-srun python -u -m train_odometry --config-file config_files/odometry/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_3m_fair.yaml --invert-rotations-train --invert-collisions
+srun python -u train_odometry_v2.py --config-file config_files/odometry/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv2_1._1._180x320_embedd_act_vflip_hc2021_vo_sim2real_fair.yaml

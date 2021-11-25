@@ -64,3 +64,7 @@ def transform_batch(batch):
         embeddings['collision'] = batch['collision']
 
     return transformed_batch, embeddings, target
+
+
+def polar_to_cartesian(rho, phi):
+    return np.array([rho * np.sin(-phi), 0, -rho * np.cos(-phi)])

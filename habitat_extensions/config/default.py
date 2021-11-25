@@ -11,9 +11,9 @@ _C.defrost()
 # -----------------------------------------------------------------------------
 # POINTGOAL WITH EGO-PREDICTIONS SENSOR
 # -----------------------------------------------------------------------------
-_C.TASK.POINTGOAL_WITH_EGO_PREDICTION_SENSOR = _C.TASK.POINTGOAL_SENSOR.clone()
-_C.TASK.POINTGOAL_WITH_EGO_PREDICTION_SENSOR.TYPE = (
-    'PointGoalWithEgoPredictionsSensor'
+_C.TASK.EGOMOTION_POINTGOAL_SENSOR = _C.TASK.POINTGOAL_SENSOR.clone()
+_C.TASK.EGOMOTION_POINTGOAL_SENSOR.TYPE = (
+    'EgomotionPointGoalSensor'
 )
 # -----------------------------------------------------------------------------
 # POINTGOAL EGOMOTION SENSOR
