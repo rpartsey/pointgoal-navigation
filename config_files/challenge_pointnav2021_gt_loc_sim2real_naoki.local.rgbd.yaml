@@ -12,9 +12,9 @@ SIMULATOR:
     GPU_DEVICE_ID: 0
     ALLOW_SLIDING: False
   RGB_SENSOR:
-    WIDTH: 640
-    HEIGHT: 480
-    HFOV: 70
+    WIDTH: 256
+    HEIGHT: 256
+    HFOV: 90
     POSITION: [0, 0.61, 0]
     ORIENTATION: [0, 0, 0] # 0 degrees
     NOISE_MODEL: "GaussianNoiseModel"
@@ -22,9 +22,9 @@ SIMULATOR:
       intensity_constant: 0.1
 
   DEPTH_SENSOR:
-    WIDTH: 640
-    HEIGHT: 480
-    HFOV: 70
+    WIDTH: 256
+    HEIGHT: 256
+    HFOV: 90
     MIN_DEPTH: 0.0
     MAX_DEPTH: 10.0
     POSITION: [0, 0.61, 0]

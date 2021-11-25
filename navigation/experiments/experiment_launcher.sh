@@ -3,6 +3,7 @@ set -x
 CURRENT_DATETIME="`date +%Y_%m_%d_%H_%M_%S`";
 
 BASE_TASK_CONFIG_PATH="config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml"
+TRAINER_CONFIG="config_files/ddppo/ddppo_pointnav_2021.yaml"
 
 #EXP_NAME="pointnav2021_gt_loc_rgbd_${CURRENT_DATETIME}"
 #DATASET_CONTENT_SCENES=""
@@ -24,14 +25,36 @@ BASE_TASK_CONFIG_PATH="config_files/challenge_pointnav2021_gt_loc.local.rgbd.yam
 
 #EXP_NAME="pointnav2021_gt_loc_gibson0_pretrained_spl_rew${CURRENT_DATETIME}" #
 #DATASET_CONTENT_SCENES="TASK_CONFIG.DATASET.SPLIT train_extra_large TASK_CONFIG.DATASET.DATA_PATH /checkpoint/sramakri/projects/Habitat-Matterport/pointnav_datasets/gibson/v2/{split}/{split}.json.gz   BASE_TASK_CONFIG_PATH config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml TASK_CONFIG.SEED 7 RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights /private/home/maksymets/pointgoal-navigation/data/new_checkpoints/pointnav2021_gt_loc_gibson0_pretrained_2021_09_22_13_12_08/ckpt.493.pth"
+#TRAINER_CONFIG="config_files/ddppo/ddppo_pointnav_2021_spl_reward.yaml"
 
-EXP_NAME="pointnav2021_gt_loc_gibson0_pretrained_spl_rew_trsh${CURRENT_DATETIME}" #
-DATASET_CONTENT_SCENES="TASK_CONFIG.DATASET.SPLIT train_extra_large TASK_CONFIG.DATASET.DATA_PATH /checkpoint/sramakri/projects/Habitat-Matterport/pointnav_datasets/gibson/v2/{split}/{split}.json.gz   BASE_TASK_CONFIG_PATH config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml TASK_CONFIG.SEED 7 
-RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights /private/home/maksymets/pointgoal-navigation/data/new_checkpoints/pointnav2021_gt_loc_gibson0_pretrained_spl_rew2021_10_13_02_03_31/ckpt.22.pth"
+#EXP_NAME="pointnav2021_gt_loc_gibson0_pretrained_spl_rew_trsh${CURRENT_DATETIME}" #
+#DATASET_CONTENT_SCENES="TASK_CONFIG.DATASET.SPLIT train_extra_large TASK_CONFIG.DATASET.DATA_PATH /checkpoint/sramakri/projects/Habitat-Matterport/pointnav_datasets/gibson/v2/{split}/{split}.json.gz   BASE_TASK_CONFIG_PATH config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml TASK_CONFIG.SEED 7 
+#RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights /private/home/maksymets/pointgoal-navigation/data/new_checkpoints/pointnav2021_gt_loc_gibson0_pretrained_spl_rew2021_10_13_02_03_31/ckpt.22.pth"
+#TRAINER_CONFIG="config_files/ddppo/ddppo_pointnav_2021_spl_thrsh_reward.yaml"
+
+
+# SIM2REAL Nav policy
+#EXP_NAME="pointnav2021_gt_loc_gibson0_pretr_spl_rew_s2r${CURRENT_DATETIME}" #
+#BASE_TASK_CONFIG_PATH="config_files/challenge_pointnav2021_gt_loc_sim2real.local.rgbd.yaml"
+#DATASET_CONTENT_SCENES="TASK_CONFIG.DATASET.SPLIT train_extra_large TASK_CONFIG.DATASET.DATA_PATH /checkpoint/sramakri/projects/Habitat-Matterport/pointnav_datasets/gibson/v2/{split}/{split}.json.gz   BASE_TASK_CONFIG_PATH config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml TASK_CONFIG.SEED 7 RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights /private/home/maksymets/pointgoal-navigation/data/new_checkpoints/pointnav2021_gt_loc_gibson0_pretrained_spl_rew2021_10_13_02_03_31/ckpt.62.pth"
+#TRAINER_CONFIG="config_files/ddppo/ddppo_pointnav_2021_spl_reward.yaml"
+
+
+# SIM2REAL Nav policy hfov
+EXP_NAME="pointnav2021_gt_loc_gibson0_pretr_spl_rew_s2r_hfov${CURRENT_DATETIME}" #
+BASE_TASK_CONFIG_PATH="config_files/challenge_pointnav2021_gt_loc_sim2real_hfov.local.rgbd.yaml"
+DATASET_CONTENT_SCENES="TASK_CONFIG.DATASET.SPLIT train_extra_large TASK_CONFIG.DATASET.DATA_PATH /checkpoint/sramakri/projects/Habitat-Matterport/pointnav_datasets/gibson/v2/{split}/{split}.json.gz   BASE_TASK_CONFIG_PATH config_files/challenge_pointnav2021_gt_loc.local.rgbd.yaml TASK_CONFIG.SEED 7 RL.DDPPO.pretrained True RL.DDPPO.pretrained_weights /private/home/maksymets/pointgoal-navigation/data/new_checkpoints/pointnav2021_gt_loc_gibson0_pretrained_spl_rew2021_10_13_02_03_31/ckpt.62.pth"
+TRAINER_CONFIG="config_files/ddppo/ddppo_pointnav_2021_spl_reward.yaml"
+
+
 MAX_SCENE_REPEAT_STEPS=""
 NUM_EPISODE_SAMPLE=""
 SENSORS=""
-TRAINER_CONFIG="config_files/ddppo/ddppo_pointnav_2021_spl_thrsh_reward.yaml"
+
+
+
+
+
 
 LOG_DIR="/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/${EXP_NAME}"
 CHKP_DIR="data/new_checkpoints/${EXP_NAME}"

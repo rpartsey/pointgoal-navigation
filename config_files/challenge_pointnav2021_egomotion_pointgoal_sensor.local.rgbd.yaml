@@ -1,7 +1,7 @@
 ENVIRONMENT:
   MAX_EPISODE_STEPS: 500
   ITERATOR_OPTIONS:
-    SHUFFLE: False
+    SHUFFLE: True
 SIMULATOR:
   TURN_ANGLE: 30
   AGENT_0:
@@ -40,22 +40,22 @@ SIMULATOR:
 TASK:
   TYPE: Nav-v0
   SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius
-  SENSORS: [ 'POINTGOAL_WITH_EGO_PREDICTION_SENSOR' ]
-  POINTGOAL_WITH_EGO_PREDICTION_SENSOR:
-    TYPE: PointGoalWithEgoPredictionsSensor
+  SENSORS: ['EGOMOTION_POINTGOAL_SENSOR']
+  EGOMOTION_POINTGOAL_SENSOR:
+    TYPE: EgomotionPointGoalSensor
     GOAL_FORMAT: "POLAR"
     DIMENSIONALITY: 2
-    TRAIN_CONFIG_PATH: /home/rpartsey/code/3d-navigation/related_works/pointgoal-navigation/pointgoal-navigation/experiments/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.1_poseloss1._1._192x341/config.yaml
-    CHECKPOINT_PATH: /home/rpartsey/code/3d-navigation/related_works/pointgoal-navigation/pointgoal-navigation/experiments/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.1_poseloss1._1._192x341/last_checkpoint.pt
-    GPU_DEVICE_ID: 0
-    ROTATION_REGULARIZATION: True
-  GOAL_SENSOR_UUID: pointgoal_with_ego_predictions
-  MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL']
+    TRAIN_CONFIG_PATH: /home/rpartsey/code/3d-navigation/pointgoal-navigation/experiments/mthesis/hc/3mmm/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_3m/config.yaml
+    CHECKPOINT_PATH: /home/rpartsey/code/3d-navigation/pointgoal-navigation/experiments/mthesis/hc/3mmm/resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_3m/best_checkpoint_064e.pt
+    SWAP_ON: True
+    FLIP_ON: True
+  GOAL_SENSOR_UUID: pointgoal_with_gps_compass
+  MEASUREMENTS: ['DISTANCE_TO_GOAL', "SUCCESS", 'SPL', 'SOFT_SPL', 'TOP_DOWN_MAP']
   SUCCESS:
     SUCCESS_DISTANCE: 0.36 # 2 x Agent Radius
 
 DATASET:
   TYPE: PointNav-v1
-  SPLIT: val_mini
-  DATA_PATH: habitat-challenge-data/pointgoal_gibson_v2/{split}/{split}.json.gz
-  SCENES_DIR: "habitat-challenge-data/data/scene_datasets/"
+  SPLIT: val
+  DATA_PATH: data/datasets/pointnav/gibson/v2/{split}/{split}.json.gz
+  SCENES_DIR: data/scene_datasets/

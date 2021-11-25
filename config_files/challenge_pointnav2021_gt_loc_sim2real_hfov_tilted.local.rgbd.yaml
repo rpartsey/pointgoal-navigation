@@ -14,9 +14,9 @@ SIMULATOR:
   RGB_SENSOR:
     WIDTH: 640
     HEIGHT: 480
-    HFOV: 70
+    HFOV: 55
     POSITION: [0, 0.61, 0]
-    ORIENTATION: [0, 0, 0] # 0 degrees
+    ORIENTATION: [-0.3490659, 0, 0] # -20 degrees
     NOISE_MODEL: "GaussianNoiseModel"
     NOISE_MODEL_KWARGS:
       intensity_constant: 0.1
@@ -24,11 +24,11 @@ SIMULATOR:
   DEPTH_SENSOR:
     WIDTH: 640
     HEIGHT: 480
-    HFOV: 70
+    HFOV: 55
     MIN_DEPTH: 0.0
     MAX_DEPTH: 10.0
     POSITION: [0, 0.61, 0]
-    ORIENTATION: [0, 0, 0] # 0 degrees
+    ORIENTATION: [-0.3490659, 0, 0] # -20 degrees
     NOISE_MODEL: "RedwoodDepthNoiseModel"
 
   ACTION_SPACE_CONFIG: 'pyrobotnoisy'
