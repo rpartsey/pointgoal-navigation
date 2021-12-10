@@ -56,7 +56,8 @@ def _seed_numba(seed: int):
 
 
 class PPOAgent(Agent):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, use_gps=False) -> None:
+        self.use_gps = use_gps
         self.input_type = config.INPUT_TYPE
         self.obs_transforms = get_active_obs_transforms(config)
         self.action_spaces = self._get_action_spaces(config)
@@ -127,8 +128,12 @@ class PPOAgent(Agent):
                 ),
             }
         else:
+            if self.use_gps:
+                sensor_uuid = IntegratedPointGoalGPSAndCompassSensor.cls_uuid
+            else:
+                sensor_uuid = PointGoalSensor.cls_uuid
             spaces = {
-                PointGoalSensor.cls_uuid: Box(
+                sensor_uuid: Box(
                     low=np.finfo(np.float32).min,
                     high=np.finfo(np.float32).max,
                     shape=(2,),
