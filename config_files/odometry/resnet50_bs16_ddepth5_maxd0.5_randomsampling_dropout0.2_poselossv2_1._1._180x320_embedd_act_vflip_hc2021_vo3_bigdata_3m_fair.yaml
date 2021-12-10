@@ -1,4 +1,4 @@
-experiment_name: resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_2
+experiment_name: resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_2_set_epoch
 log_dir: ../experiments
 epochs: 150
 device: cuda:0
@@ -6,14 +6,23 @@ seed: 1
 distrib_backend: NCCL
 compute_metrics_per_action: True
 
+trainer:
+  type: StaticDatasetTrainer
+
 train:
   dataset:
     type: EgoMotionDataset
     params:
       data_root: /checkpoint/maksymets/data/vo_datasets_3m/ #/private/home/maksymets/pointgoal-navigation/data/vo_datasets_3m/ # /home/rpartsey/data/habitat/vo_datasets/noisy_plus_noisy_big/
       environment_dataset: gibson
-      split: train  # train_train
+      split: train
       invert_rotations: True
+      num_points: null
+      not_use_turn_left: False
+      not_use_turn_right: False
+      not_use_move_forward: False
+      invert_collisions: True
+      not_use_rgb: False
     augmentations:
       VFlip:
         params: null
@@ -79,6 +88,12 @@ val:
       environment_dataset: gibson
       split: val
       invert_rotations: False
+      num_points: null
+      not_use_turn_left: False
+      not_use_turn_right: False
+      not_use_move_forward: False
+      invert_collisions: False
+      not_use_rgb: False
     augmentations: null
     transforms:
       ConvertToTensor:
