@@ -4,7 +4,10 @@ from torch.utils.data.distributed import DistributedSampler
 from . import dataset as dataset_module
 from . import transforms as transforms_module
 from . import samplers as samplers_module
-from . import augmentations as augmentations_module
+try:
+    from . import augmentations as augmentations_module
+except ImportError:
+    pass
 
 
 def make_augmentations(augmentations_config):
