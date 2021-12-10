@@ -6,7 +6,6 @@ import quaternion
 import numpy as np
 import torch
 
-import habitat_sim
 from habitat.config import Config
 from habitat.core.registry import registry
 from habitat.core.simulator import Simulator
@@ -31,6 +30,17 @@ INVERSE_ACTION = {
     2: 3,
     3: 2
 }
+
+
+def quat_from_angle_axis(theta: float, axis: np.ndarray) -> quaternion.quaternion:
+    r"""Creates a quaternion from angle axis format
+    :param theta: The angle to rotate about the axis by
+    :param axis: The axis to rotate about
+    :return: The quaternion
+    """
+    axis = axis.astype(float)
+    axis /= np.linalg.norm(axis)
+    return quaternion.from_rotation_vector(theta * axis)
 
 
 class PointGoalEstimator:
@@ -58,7 +68,7 @@ class PointGoalEstimator:
     def _compute_pointgoal(self, x, y, z, yaw):
         noisy_translation = np.asarray([x, y, z], dtype=np.float32)
         noisy_rot_mat = quaternion.as_rotation_matrix(
-            habitat_sim.utils.quat_from_angle_axis(theta=yaw, axis=np.asarray([0, 1, 0]))
+            quat_from_angle_axis(theta=yaw, axis=np.asarray([0, 1, 0]))
         )
 
         noisy_T_curr2prev_state = np.zeros((4, 4), dtype=np.float32)
