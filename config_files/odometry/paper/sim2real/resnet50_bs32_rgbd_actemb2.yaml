@@ -1,6 +1,6 @@
-experiment_name: resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_2_set_epoch
-log_dir: ../experiments
-epochs: 150
+experiment_name: resnet50_bs32_rgbd_actemb2
+log_dir: ../experiments/sim2real
+epochs: 50
 device: cuda:0
 seed: 1
 distrib_backend: NCCL
@@ -11,80 +11,58 @@ trainer:
 
 train:
   dataset:
-    type: EgoMotionDataset
+    type: EgoMotionDatasetResized
     params:
-      data_root: /checkpoint/maksymets/data/vo_datasets_3m/ #/private/home/maksymets/pointgoal-navigation/data/vo_datasets_3m/ # /home/rpartsey/data/habitat/vo_datasets/noisy_plus_noisy_big/
+      data_root: /home/rpartsey/data/habitat/vo_datasets/sim2real
       environment_dataset: gibson
       split: train
-      invert_rotations: True
+      invert_rotations: False
       num_points: null
       not_use_turn_left: False
       not_use_turn_right: False
       not_use_move_forward: False
-      invert_collisions: True
+      invert_collisions: False
       not_use_rgb: False
-    augmentations:
-      VFlip:
-        params: null
     transforms:
       ConvertToTensor:
         rank: 1
         params: null
-        #  DiscretizeDepth:
-        #rank: 2
-        #params:
-        #  n_channels: 5
-        #  min_depth: 0
-        #  max_depth: 0.5
+      #  DiscretizeDepth:
+      #    rank: 2
+      #    params:
+      #      n_channels: 5
+      #      min_depth: 0
+      #      max_depth: 0.5
       PermuteChannels:
         rank: 3
         params: null
-      Resize:
-        rank: 4
-        params:
-          size: [180, 320]
-          interpolation: BILINEAR
+#      Resize:
+#        rank: 4
+#        params:
+#          size: [ 180, 320 ]
+#          interpolation: BILINEAR
       Normalize:
         rank: 5
         params: null
-
+    augmentations: null
+#      VFlip:
+#        params: null
   loader:
     type: EgoDataLoader
     params:
-      batch_size: 16
-      num_workers: 16
+      batch_size: 32
+      num_workers: 20
       shuffle: False
       sampler: null
   metrics:
     - translation_mae
     - rotation_mae
 
-#train_val:
-#  dataset:
-#    type: EgoMotionDataset
-#    params:
-#      data_root: /home/rpartsey/data/habitat/vo_datasets/noisy
-#      environment_dataset: gibson
-#      split: train_val
-#      invert_rotations: False
-#      num_points: null
-#    augmentations: null
-#  loader:
-#    type: EgoDataLoader
-#    params:
-#      batch_size: 16
-#      num_workers: 12
-#      shuffle: False
-#      sampler: null
-#  metrics:
-#    - translation_mae
-#    - rotation_mae
-
 val:
   dataset:
-    type: EgoMotionDataset
+    type: EgoMotionDatasetResized
     params:
-      data_root: /checkpoint/maksymets/data/vo_datasets/ # /private/home/maksymets/pointgoal-navigation/data/vo_datasets/
+      data_root: /home/rpartsey/data/habitat/vo_datasets/sim2real
       environment_dataset: gibson
       split: val
       invert_rotations: False
@@ -94,34 +72,33 @@ val:
       not_use_move_forward: False
       invert_collisions: False
       not_use_rgb: False
-    augmentations: null
     transforms:
       ConvertToTensor:
         rank: 1
         params: null
-        #  DiscretizeDepth:
-        #rank: 2
-        #params:
-        #  n_channels: 5
-        #  min_depth: 0
-        #  max_depth: 0.5
+      #  DiscretizeDepth:
+      #    rank: 2
+      #    params:
+      #      n_channels: 5
+      #      min_depth: 0
+      #      max_depth: 0.5
       PermuteChannels:
         rank: 3
         params: null
-      Resize:
-        rank: 4
-        params:
-          size: [180, 320]
-          interpolation: BILINEAR
+#      Resize:
+#        rank: 4
+#        params:
+#          size: [ 180, 320 ]
+#          interpolation: BILINEAR
       Normalize:
         rank: 5
         params: null
-
+    augmentations: null
   loader:
     type: EgoDataLoader
     params:
-      batch_size: 16
-      num_workers: 16
+      batch_size: 32
+      num_workers: 20
       shuffle: False
       sampler: null
   metrics:

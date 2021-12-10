@@ -1,4 +1,4 @@
-experiment_name: resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_2_set_epoch
+experiment_name: resnet50_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poselossv21._1._180x320_embedd_act_vflip_hc2021_vo3_bigdata_5m_8n_set_epoch
 log_dir: ../experiments
 epochs: 150
 device: cuda:0
