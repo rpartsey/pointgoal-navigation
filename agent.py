@@ -59,7 +59,14 @@ class PPOAgent(Agent):
     def __init__(self, config: Config, use_gps=False) -> None:
         self.use_gps = use_gps
         self.input_type = config.INPUT_TYPE
-        self.obs_transforms = get_active_obs_transforms(config)
+        try:
+            self.obs_transforms = get_active_obs_transforms(config)
+        except AttributeError:  # transform could not be imported
+            print(
+                "!!!WARNING!!! Transforms below were not imported and can't be used:\n",
+                config.RL.POLICY.OBS_TRANSFORMS.ENABLED_TRANSFORMS
+            )
+            self.obs_transforms = []
         self.action_spaces = self._get_action_spaces(config)
         observation_spaces = self._get_observation_spaces(config)
 
@@ -224,6 +231,7 @@ class PPOAgentV2(PPOAgent):
         # inject estimated point goal location as a 'pointgoal_with_gps_compass' sensor measure
         pointgoal = self._get_pointgoal_estimate(copy.deepcopy(observations))
         observations[IntegratedPointGoalGPSAndCompassSensor.cls_uuid] = pointgoal
+        self.pred_rho_theta = pointgoal
 
         observations.pop(PointGoalSensor.cls_uuid)
         if self.input_type == 'depth':

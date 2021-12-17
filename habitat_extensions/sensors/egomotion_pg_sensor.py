@@ -19,6 +19,10 @@ from odometry.models import make_model
 from odometry.utils import transform_batch
 from odometry.utils.utils import polar_to_cartesian
 
+from habitat.core.utils import try_cv2_import
+
+
+cv2 = try_cv2_import()
 
 ROTATION_ACTIONS = {
     # 0   STOP
@@ -125,6 +129,20 @@ class PointGoalEstimator:
         if self.action_embedding_on:
             visual_obs['action'] = action - 1  # shift all action ids as we don't use 0 - STOP
 
+        for k, v in visual_obs.items():
+            if "rgb" in k:
+                visual_obs[k] = cv2.resize(
+                    v,
+                    (320, 180),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+            if "depth" in k:
+                visual_obs[k] = cv2.resize(
+                    v.squeeze(-1),
+                    (320, 180),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+                visual_obs[k] = np.expand_dims(visual_obs[k], axis=2)
         visual_obs = self.obs_transforms(visual_obs)
         batch = {k: v.unsqueeze(0) for k, v in visual_obs.items()}
 
