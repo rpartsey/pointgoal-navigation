@@ -35,8 +35,8 @@ CKPT_PATH = "/home/locobot/oiayn/v2_best_checkpoint_047e.pt"
 
 LIN_TIME_STEP = 1.0
 ANG_TIME_STEP = 2.0
-LIN_SPEED = 0.25  # in meters per second
-ANG_SPEED = np.deg2rad(30)  # in radians per second
+LIN_SPEED = 0.25 * 1.5  # in meters per second
+ANG_SPEED = np.deg2rad(30) * 1.5  # in radians per second
 ACTION2VEL_TIMESTEP = [
     (0.0, 0.0, 0.0),
     (LIN_SPEED, 0.0, LIN_TIME_STEP),
@@ -92,13 +92,13 @@ class NavEnv:
         config.PYROBOT.SENSORS = ["RGB_SENSOR", "DEPTH_SENSOR"]
         # config.PYROBOT.RGB_SENSOR.WIDTH = sim_cfg.RGB_SENSOR.WIDTH
         # config.PYROBOT.RGB_SENSOR.HEIGHT = sim_cfg.RGB_SENSOR.HEIGHT
-        config.PYROBOT.RGB_SENSOR.WIDTH = 256
-        config.PYROBOT.RGB_SENSOR.HEIGHT = 256
+        config.PYROBOT.RGB_SENSOR.WIDTH = 640
+        config.PYROBOT.RGB_SENSOR.HEIGHT = 480
         config.PYROBOT.RGB_SENSOR.ORIENTATION = sim_cfg.RGB_SENSOR.ORIENTATION
         # config.PYROBOT.DEPTH_SENSOR.WIDTH = sim_cfg.DEPTH_SENSOR.WIDTH
         # config.PYROBOT.DEPTH_SENSOR.HEIGHT = sim_cfg.DEPTH_SENSOR.HEIGHT
-        config.PYROBOT.DEPTH_SENSOR.WIDTH = 256
-        config.PYROBOT.DEPTH_SENSOR.HEIGHT = 256
+        config.PYROBOT.DEPTH_SENSOR.WIDTH = 640
+        config.PYROBOT.DEPTH_SENSOR.HEIGHT = 480
         config.PYROBOT.DEPTH_SENSOR.ORIENTATION = sim_cfg.DEPTH_SENSOR.ORIENTATION
         config.PYROBOT.DEPTH_SENSOR.MAX_DEPTH = sim_cfg.DEPTH_SENSOR.MAX_DEPTH
         config.PYROBOT.DEPTH_SENSOR.MIN_DEPTH = sim_cfg.DEPTH_SENSOR.MIN_DEPTH
@@ -109,11 +109,10 @@ class NavEnv:
         print(config.PYROBOT)
 
         self.vo = vo
-        self.pointgoal_key = IntegratedPointGoalGPSAndCompassSensor.cls_uuid
+        self.pointgoal_from_initial = None
         self._reality = make_sim(id_sim="PyRobot-v0", config=config.PYROBOT)
         self._goal_location = np.array([0.0, 0.0], dtype=np.float32)
         self._last_time = time.time()
-        self.pointgoal_from_initial = None
 
     def _pointgoal(self, agent_state, goal):
         """
@@ -258,10 +257,24 @@ def main():
     rho, theta = observation[sensor_uuid]
 
     for step in range(config.TASK_CONFIG.ENVIRONMENT.MAX_EPISODE_STEPS):
+        depth = (
+            observation["depth"].astype(np.float32) * 65535
+        ).astype(np.uint16).reshape(480, 640)
+        cv2.imwrite(
+            f"data/{step:03}_depth.png",
+            depth,
+        )
+        cv2.imwrite(
+            f"data/{step:03}_rgb.png",
+            cv2.cvtColor(observation["rgb"], cv2.COLOR_BGR2RGB),
+        )
+
         # Make sure depth has a third dim of 1 for channels
-        observation["depth"] = observation["depth"].reshape(
-            [*observation["depth"].shape[:2], 1]
-        ).astype(np.float32)
+        observation["depth"] = (
+            observation["depth"]
+            .reshape([*observation["depth"].shape[:2], 1])
+            .astype(np.float32)
+        )
 
         # Normalize RGB if using VO
         if "rgb" in observation:
@@ -294,11 +307,11 @@ def main():
             pred_rho, pred_theta = agent.pred_rho_theta
             stats = (
                 f"A: {action_name} "
-                f"rho (gt/pred/err): {rho:0.2f} / {pred_rho:0.2f}"
-                f" / {rho - pred_rho:0.2f}"
-                f"\ttheta (gt/pred/err): {np.rad2deg(theta):0.2f}"
-                f" / {np.rad2deg(pred_theta):0.2f}"
-                f" / {np.rad2deg(wrap_heading(theta - pred_theta)):0.2f}"
+                f"rho (gt/pred/err): {rho:0.5f} / {pred_rho:0.5f}"
+                f" / {rho - pred_rho:0.5f}"
+                f"\ttheta (gt/pred/err): {np.rad2deg(theta):0.5f}"
+                f" / {np.rad2deg(pred_theta):0.5f}"
+                f" / {np.rad2deg(wrap_heading(theta - pred_theta)):0.5f}"
                 f"\tcolls: {collisions}\tsteps: {step + 1}"
             )
         else:

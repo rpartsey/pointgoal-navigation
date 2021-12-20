@@ -1,5 +1,6 @@
 import argparse
 import copy
+import cv2
 import os
 import random
 from collections import OrderedDict
@@ -236,6 +237,21 @@ class PPOAgentV2(PPOAgent):
         observations.pop(PointGoalSensor.cls_uuid)
         if self.input_type == 'depth':
             observations.pop('rgb')
+
+        for k, v in observations.items():
+            if "rgb" in k:
+                observations[k] = cv2.resize(
+                    v,
+                    (256, 256),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+            if "depth" in k:
+                observations[k] = cv2.resize(
+                    v.squeeze(-1),
+                    (256, 256),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+                observations[k] = np.expand_dims(observations[k], axis=2)
 
         return super().act(observations)
 
