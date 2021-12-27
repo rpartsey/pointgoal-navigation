@@ -20,6 +20,7 @@ from agent import (
     make_transforms,
 )
 from habitat.core.utils import try_cv2_import
+import habitat_baselines_extensions.common.obs_transformers  # noqa required to register Resize obs transform
 
 
 cv2 = try_cv2_import()
@@ -235,6 +236,7 @@ def main():
     config.RANDOM_SEED = args.seed
     config.INPUT_TYPE = "depth"
     config.MODEL_PATH = args.model_path
+    config.RL.POLICY.OBS_TRANSFORMS.RESIZE.SIZE = 256
     config.freeze()
     if args.use_vo:
         pointgoal_estimator = vo_cpu_eval_model(CONFIG_PATH, CKPT_PATH)
