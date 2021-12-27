@@ -45,6 +45,8 @@ ACTION2VEL_TIMESTEP = [
 ]
 MAX_COLLISIONS = 40
 
+SUCCESS_DISTANCE = 0.36 # 2 x Agent Radius
+
 
 def vo_cpu_eval_model(config_path, ckpt_path, device=DEVICE):
     vo_config = get_vo_config(config_path, new_keys_allowed=True)
@@ -249,6 +251,7 @@ def main():
     log_mesg("Starting new episode")
     log_mesg("Goal location: {}".format(goal_location))
     observation = env.reset(goal_location)
+
     collisions = 0
     if PointGoalSensor.cls_uuid in observation:
         sensor_uuid = PointGoalSensor.cls_uuid
@@ -290,7 +293,7 @@ def main():
         # Termination conditions
         if observation is None:
             print(f"STOP WAS CALLED. Dist: {rho}")
-            if rho < 0.2:
+            if rho < SUCCESS_DISTANCE:
                 print("SUCCESS!!!!")
             else:
                 print("Failed.")
