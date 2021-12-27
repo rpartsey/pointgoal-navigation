@@ -279,10 +279,8 @@ def main():
             .astype(np.float32)
         )
 
-        # Normalize RGB if using VO
         if "rgb" in observation:
             assert env.vo
-            observation["rgb"] = observation["rgb"].astype(np.float32) / 255.0
         else:
             assert not env.vo
 
