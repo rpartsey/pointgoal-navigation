@@ -26,11 +26,6 @@ import habitat_baselines_extensions.common.obs_transformers  # noqa required to 
 
 cv2 = try_cv2_import()
 
-DEVICE = torch.device("cpu")
-
-# CONFIG_PATH = "/home/locobot/oiayn/config.yaml"
-# CKPT_PATH = "/home/locobot/oiayn/best_checkpoint_150e.pt"
-# CKPT_PATH = "/home/locobot/oiayn/vo_sim2real_e017.pt"
 CONFIG_PATH = "/home/locobot/oiayn/v2_config.yaml"
 CKPT_PATH = "/home/locobot/oiayn/v2_best_checkpoint_047e.pt"
 
@@ -41,7 +36,7 @@ MAX_COLLISIONS = 40
 SUCCESS_DISTANCE = 0.36 # 2 x Agent Radius
 
 
-def vo_cpu_eval_model(config_path, ckpt_path, device=DEVICE):
+def vo_cpu_eval_model(config_path, ckpt_path, device=torch.device("cpu")):
     vo_config = get_vo_config(config_path, new_keys_allowed=True)
     vo_model = make_model(vo_config.model).to(device)
     checkpoint = torch.load(ckpt_path, map_location=device)
