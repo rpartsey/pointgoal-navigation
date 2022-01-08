@@ -15,6 +15,7 @@ from ..metrics import make_metrics
 from ..optims import make_optimizer
 from ..losses import make_loss
 from ..models.models import init_distributed
+from ..schedulers import make_scheduler
 
 
 class BaseTrainer:
@@ -32,7 +33,8 @@ class BaseTrainer:
         self.device = None
         self.model = None
         self.optimizer = None
-        self.scheduler = None
+        self.lr_scheduler = None
+        self.warmup_scheduler = None
         self.loss_f = None
 
         self.train_writer = None
@@ -54,9 +56,16 @@ class BaseTrainer:
         if self.is_distributed():
             self.model = init_distributed(self.model, self.device, find_unused_params=True)
 
-        self.optimizer = make_optimizer(self.config.optim, self.model.parameters())
-        self.scheduler = None
         self.loss_f = make_loss(self.config.loss)
+        self.optimizer = make_optimizer(self.config.optim, self.model.parameters())
+        self.warmup_scheduler = (
+            make_scheduler(self.config.schedulers.warmup, self.optimizer)
+            if self.config.schedulers.warmup is not None else None
+        )
+        self.lr_scheduler =(
+            make_scheduler(self.config.schedulers.lr, self.optimizer)
+            if self.config.schedulers.lr is not None else None
+        )
 
     def init_distrib(self):
         local_rank, tcp_store = init_distrib_slurm(self.config.distrib_backend)

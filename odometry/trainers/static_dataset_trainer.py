@@ -41,6 +41,9 @@ class StaticDatasetTrainer(BaseTrainer):
             loss.backward()
             self.optimizer.step()
 
+            if self.warmup_scheduler is not None:
+                self.warmup_scheduler.dampen()
+
             batch_size = target.shape[0]
             metrics['loss'] += loss.item() * batch_size
             for loss_component, value in loss_components.items():
@@ -130,5 +133,5 @@ class StaticDatasetTrainer(BaseTrainer):
                 torch.save(self.model.state_dict(), best_checkpoint_path)
                 print('Saved model checkpoint on disk.')
 
-            if self.scheduler:
-                self.scheduler.step()
+            if self.lr_scheduler is not None:
+                self.lr_scheduler.step()
