@@ -34,16 +34,8 @@ DEVICE = torch.device("cpu")
 CONFIG_PATH = "/home/locobot/oiayn/v2_config.yaml"
 CKPT_PATH = "/home/locobot/oiayn/v2_best_checkpoint_047e.pt"
 
-LIN_TIME_STEP = 1.0
-ANG_TIME_STEP = 2.0
 LIN_SPEED = 0.25 * 1.5  # in meters per second
 ANG_SPEED = np.deg2rad(30) * 1.5  # in radians per second
-ACTION2VEL_TIMESTEP = [
-    (0.0, 0.0, 0.0),
-    (LIN_SPEED, 0.0, LIN_TIME_STEP),
-    (0.0, ANG_SPEED, ANG_TIME_STEP),
-    (0.0, -ANG_SPEED, ANG_TIME_STEP),
-]
 MAX_COLLISIONS = 40
 
 SUCCESS_DISTANCE = 0.36 # 2 x Agent Radius
