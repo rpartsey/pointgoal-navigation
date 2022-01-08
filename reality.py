@@ -1,4 +1,5 @@
 import argparse
+import os
 from collections import OrderedDict
 import numpy as np
 import random
@@ -26,7 +27,6 @@ import habitat_baselines_extensions.common.obs_transformers  # noqa required to 
 cv2 = try_cv2_import()
 
 DEVICE = torch.device("cpu")
-LOG_FILENAME = "oiayn.log"
 
 # CONFIG_PATH = "/home/locobot/oiayn/config.yaml"
 # CKPT_PATH = "/home/locobot/oiayn/best_checkpoint_150e.pt"
@@ -161,7 +161,7 @@ class NavEnv:
     def _get_base_state(self):
         base_state = self._reality.base.get_state("odom")
         base_state = np.array(base_state, dtype=np.float32)
-        # log_mesg("base_state: {:.3f} {:.3f} {:.3f}".format(*base_state))
+        # print("base_state: {:.3f} {:.3f} {:.3f}".format(*base_state))
         return base_state
 
     def step(self, action):
@@ -190,9 +190,7 @@ class NavEnv:
                 error = abs(agent_rotation - new_agent_rotation)
 
         # Pause to prevent visual motion blur from jerky motions
-        if self.vo:
-            self._reality._robot.base.set_vel(0.0, 0.0, 1.0)
-            pass
+        self._reality._robot.base.set_vel(0.0, 0.0, 1.0)
 
         observation = self._reality._sensor_suite.get_observations(
             self._reality.get_robot_observations()
@@ -204,15 +202,8 @@ class NavEnv:
             observation[
                 IntegratedPointGoalGPSAndCompassSensor.cls_uuid
             ] = self._pointgoal(self._get_base_state(), self._goal_location)
-            observation.pop("rgb")
 
         return observation
-
-
-def log_mesg(mesg):
-    print(mesg)
-    with open(LOG_FILENAME, "a") as f:
-        f.write(mesg + "\n")
 
 
 def main():
@@ -220,9 +211,17 @@ def main():
     parser.add_argument("-m", "--model-path", type=str, required=True)
     parser.add_argument("-v", "--use-vo", action="store_true")
     parser.add_argument("-g", "--goal", default="6.35,4.5")
-    parser.add_argument("-l", "--log", default=None)
+    parser.add_argument("-n", "--experiment-name", default=None)
     parser.add_argument("--seed", type=int, default=1)
     args = parser.parse_args()
+
+    # Where logs and images will be stored, if desired
+    exp_name = args.experiment_name
+    if exp_name is not None:
+        os.makedirs(f"data/{exp_name}", exist_ok=True)
+        log_file = f"data/{exp_name}/{exp_name}.log"
+    else:
+        log_file = None
 
     # Set random seed
     torch.manual_seed(args.seed)
@@ -250,32 +249,35 @@ def main():
 
     # Set up episode
     goal_location = np.array([float(i) for i in args.goal.split(",")], dtype=np.float32)
-    log_mesg("Starting new episode")
-    log_mesg("Goal location: {}".format(goal_location))
+    print("Starting new episode")
+    print("Goal location: {}".format(goal_location))
     observation = env.reset(goal_location)
 
     # Get initial agent state
     agent_state = env._get_base_state()
-
-    collisions = 0
     if PointGoalSensor.cls_uuid in observation:
         sensor_uuid = PointGoalSensor.cls_uuid
     else:
         sensor_uuid = IntegratedPointGoalGPSAndCompassSensor.cls_uuid
     rho, theta = observation[sensor_uuid]
 
+    collisions = 0
+    done = False
     for step in range(config.TASK_CONFIG.ENVIRONMENT.MAX_EPISODE_STEPS):
-        depth = (
-            observation["depth"].astype(np.float32) * 65535
-        ).astype(np.uint16).reshape(480, 640)
-        cv2.imwrite(
-            f"data/{step:03}_depth.png",
-            depth,
-        )
-        cv2.imwrite(
-            f"data/{step:03}_rgb.png",
-            cv2.cvtColor(observation["rgb"], cv2.COLOR_BGR2RGB),
-        )
+
+        # Save images for debugging / visualization
+        if exp_name is not None:
+            depth = (
+                observation["depth"].astype(np.float32) * 65535
+            ).astype(np.uint16).reshape(480, 640)
+            cv2.imwrite(
+                f"data/{exp_name}/{step:03}_depth.png",
+                depth,
+            )
+            cv2.imwrite(
+                f"data/{exp_name}/{step:03}_rgb.png",
+                cv2.cvtColor(observation["rgb"], cv2.COLOR_BGR2RGB),
+            )
 
         # Make sure depth has a third dim of 1 for channels
         observation["depth"] = (
@@ -284,23 +286,22 @@ def main():
             .astype(np.float32)
         )
 
-        if "rgb" in observation:
-            assert env.vo
-        else:
-            assert not env.vo
-
-        # Execute action
+        # Pass observations to agent to get action, then execute action
+        if not env.vo:
+            observation.pop("rgb")
         action = agent.act(observation)["action"]
         observation = env.step(action)
 
+        # Record metrics
         action_name = ["STOP ", "FWD  ", "LEFT ", "RIGHT"][action]
-
         if env.vo:
             pred_rho, pred_theta = agent.pred_rho_theta
             stats = (
                 f"A: {action_name}\t"
-                f"rho (gt/pred/err): {rho:0.3f} / {pred_rho:0.3f} / {rho - pred_rho:0.5f}\t"
-                f"theta (gt/pred/err): {theta:0.3f} / {pred_theta:0.3f} / {(theta - pred_theta):0.3f}\t"
+                f"rho (gt/pred/err): "
+                f"{rho:0.3f} / {pred_rho:0.3f} / {rho - pred_rho:0.5f}\t"
+                f"theta (gt/pred/err): "
+                f"{theta:0.3f} / {pred_theta:0.3f} / {(theta - pred_theta):0.3f}\t"
                 f"colls: {collisions}\t"
                 f"steps: {step + 1}"
             )
@@ -312,14 +313,18 @@ def main():
                 f"colls: {collisions}\t"
                 f"steps: {step + 1}"
             )
-
         print(stats)
-
-        if args.log is not None:
+        if exp_name is not None:
             agent_x, agent_y, agent_rotation = agent_state
             stats += f"\tbase: {agent_x},{agent_y},{agent_rotation}\n"
-            with open(args.log, "a+") as f:
+            with open(log_file, "a+") as f:
                 f.write(stats)
+
+        # Get agent state after executing action
+        agent_state = env._get_base_state()
+
+        # Get ground truth GPS
+        rho, theta = env._pointgoal(agent_state, env._goal_location)
 
         # Termination conditions
         if observation is None:
@@ -328,18 +333,25 @@ def main():
                 print("SUCCESS!!!!")
             else:
                 print("Failed.")
-            return
+            done = True
         if env.get_collision_state():
             collisions += 1
             if collisions > MAX_COLLISIONS:
                 print("Max collisions reached. Exiting.")
-                return
+                done = True
 
-        # Get agent state after executing action
-        agent_state = env._get_base_state()
-
-        # Get ground truth GPS
-        rho, theta = env._pointgoal(agent_state, env._goal_location)
+        # Record metrics at final state
+        if done:
+            agent_x, agent_y, agent_rotation = agent_state
+            stats = (
+                f"Final actual pose: {agent_x},{agent_y},{agent_rotation}\n"
+                f"Final actual rho theta to goal: {rho},{theta}\n"
+            )
+            print(stats)
+            if exp_name is not None:
+               with open(log_file, "a+") as f:
+                    f.write(stats)
+            return  # script completely resolves here
 
     print("Max actions reached. Exiting.")
 
