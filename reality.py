@@ -20,6 +20,7 @@ from agent import (
     make_transforms,
 )
 from habitat.core.utils import try_cv2_import
+import habitat_baselines_extensions.common.obs_transformers  # noqa required to register Resize obs transform
 
 
 cv2 = try_cv2_import()
@@ -44,6 +45,8 @@ ACTION2VEL_TIMESTEP = [
     (0.0, -ANG_SPEED, ANG_TIME_STEP),
 ]
 MAX_COLLISIONS = 40
+
+SUCCESS_DISTANCE = 0.36 # 2 x Agent Radius
 
 
 def vo_cpu_eval_model(config_path, ckpt_path, device=DEVICE):
@@ -233,6 +236,7 @@ def main():
     config.RANDOM_SEED = args.seed
     config.INPUT_TYPE = "depth"
     config.MODEL_PATH = args.model_path
+    config.RL.POLICY.OBS_TRANSFORMS.RESIZE.SIZE = 256
     config.freeze()
     if args.use_vo:
         pointgoal_estimator = vo_cpu_eval_model(CONFIG_PATH, CKPT_PATH)
@@ -249,6 +253,10 @@ def main():
     log_mesg("Starting new episode")
     log_mesg("Goal location: {}".format(goal_location))
     observation = env.reset(goal_location)
+
+    # Get initial agent state
+    agent_state = env._get_base_state()
+
     collisions = 0
     if PointGoalSensor.cls_uuid in observation:
         sensor_uuid = PointGoalSensor.cls_uuid
@@ -276,10 +284,8 @@ def main():
             .astype(np.float32)
         )
 
-        # Normalize RGB if using VO
         if "rgb" in observation:
             assert env.vo
-            observation["rgb"] = observation["rgb"].astype(np.float32) / 255.0
         else:
             assert not env.vo
 
@@ -287,10 +293,38 @@ def main():
         action = agent.act(observation)["action"]
         observation = env.step(action)
 
+        action_name = ["STOP ", "FWD  ", "LEFT ", "RIGHT"][action]
+
+        if env.vo:
+            pred_rho, pred_theta = agent.pred_rho_theta
+            stats = (
+                f"A: {action_name}\t"
+                f"rho (gt/pred/err): {rho:0.3f} / {pred_rho:0.3f} / {rho - pred_rho:0.5f}\t"
+                f"theta (gt/pred/err): {theta:0.3f} / {pred_theta:0.3f} / {(theta - pred_theta):0.3f}\t"
+                f"colls: {collisions}\t"
+                f"steps: {step + 1}"
+            )
+        else:
+            stats = (
+                f"A: {action_name}\t"
+                f"rho: {rho:0.3}\t"
+                f"theta: {theta:0.3f}\t"
+                f"colls: {collisions}\t"
+                f"steps: {step + 1}"
+            )
+
+        print(stats)
+
+        if args.log is not None:
+            agent_x, agent_y, agent_rotation = agent_state
+            stats += f"\tbase: {agent_x},{agent_y},{agent_rotation}\n"
+            with open(args.log, "a+") as f:
+                f.write(stats)
+
         # Termination conditions
         if observation is None:
             print(f"STOP WAS CALLED. Dist: {rho}")
-            if rho < 0.2:
+            if rho < SUCCESS_DISTANCE:
                 print("SUCCESS!!!!")
             else:
                 print("Failed.")
@@ -301,37 +335,11 @@ def main():
                 print("Max collisions reached. Exiting.")
                 return
 
-        action_name = ["STOP ", "FWD  ", "LEFT ", "RIGHT"][action]
-
-        if env.vo:
-            pred_rho, pred_theta = agent.pred_rho_theta
-            stats = (
-                f"A: {action_name} "
-                f"rho (gt/pred/err): {rho:0.5f} / {pred_rho:0.5f}"
-                f" / {rho - pred_rho:0.5f}"
-                f"\ttheta (gt/pred/err): {np.rad2deg(theta):0.5f}"
-                f" / {np.rad2deg(pred_theta):0.5f}"
-                f" / {np.rad2deg(wrap_heading(theta - pred_theta)):0.5f}"
-                f"\tcolls: {collisions}\tsteps: {step + 1}"
-            )
-        else:
-            stats = (
-                f"A: {action_name}\t"
-                f"rho: {rho:0.2f}\t"
-                f"theta: {np.rad2deg(theta):0.2f}\t"
-                f"\tcolls: {collisions}\tsteps: {step + 1}"
-            )
-
-        print(stats)
-
-        if args.log is not None:
-            agent_x, agent_y, agent_rotation = env._get_base_state()
-            stats += f"\tbase: {agent_x},{agent_y},{agent_rotation}\n"
-            with open(args.log, "a+") as f:
-                f.write(stats)
+        # Get agent state after executing action
+        agent_state = env._get_base_state()
 
         # Get ground truth GPS
-        rho, theta = env._pointgoal(env._get_base_state(), env._goal_location)
+        rho, theta = env._pointgoal(agent_state, env._goal_location)
 
     print("Max actions reached. Exiting.")
 
