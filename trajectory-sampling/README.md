@@ -1,18 +1,17 @@
 # Visual odometry dataset generation
 
-Visual odometry dataset is collected by sampling pairs of RGBD observations (and additional meta information,
-see `generate_trajectory_dataset.py`) from agent rollout trajectories.
+Visual odometry dataset is collected by sampling pairs of RGB-D observations (and additional meta information,
+see `generate_trajectory_dataset_par.py`) from agent rollout trajectories.
 
-Before running `./generate_dataset.sh` add the _pointgoal-navigation_ root directory to the _PYTHONPATH_ 
+Before running `./generate_dataset_par.sh` (or `python generate_trajectory_dataset_par.py`) 
+add the _pointgoal-navigation_ root directory to the _PYTHONPATH_:
 ```shell
 export PYTHONPATH="<pointgoal-navigation root directory>:${PYTHONPATH}"
 ```
-and link the habitat _data_ directory
+and link the habitat _data_ directory:
 ```shell
 ln -s <path to habitat data directory> <path to pointgoal-navigation>/trajectory-sampling/data/
 ```
-
-Add _COLLISIONS_ measure to the base task config _TASK.MEASUREMENTS_ if it is missing.
 
 ## Multi-process
 
@@ -36,9 +35,8 @@ Example:
   --base-task-config-file ../config_files/challenge_pointnav2021.local.rgbd.yaml \
   --dataset gibson \
   --split train \
-  --gibson-votes-csv data/datasets/pointnav/gibson/v2/gibson_quality_ratings.csv \
-  --num-episodes-per-scene 2500 \  
-  --gpu-ids 0 \
+  --num-episodes-per-scene 4000 \
+  --gpu-ids 0 1 \
   --num-processes-per-gpu 4 \
   --pts-frac-per-episode 0.2
 ```
@@ -57,7 +55,7 @@ Example:
   --dataset gibson \
   --split train \
   --gibson-votes-csv data/datasets/pointnav/gibson/v2/gibson_quality_ratings.csv \
-  --num-episodes-per-scene 2500 \  
+  --num-episodes-per-scene 4000 \
   --gpu-ids 0 \
   --num-processes-per-gpu 4 \
   --pts-frac-per-episode 0.2

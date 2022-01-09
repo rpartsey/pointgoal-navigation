@@ -240,6 +240,8 @@ if __name__ == '__main__':
     config.TASK_CONFIG.SIMULATOR.HABITAT_SIM_V0.GPU_DEVICE_ID = args.sim_gpu_id
     config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = True
     config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.NUM_EPISODE_SAMPLE = args.num_episode_sample
+    if 'COLLISIONS' not in config.TASK_CONFIG.TASK.MEASUREMENTS:
+        config.TASK_CONFIG.TASK.MEASUREMENTS.append('COLLISIONS')
     config.freeze()
 
     env = build_env(config)
