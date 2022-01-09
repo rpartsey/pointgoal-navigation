@@ -1,18 +1,17 @@
 # Visual odometry dataset generation
 
-Visual odometry dataset is collected by sampling pairs of RGBD observations (and additional meta information,
+Visual odometry dataset is collected by sampling pairs of RGB-D observations (and additional meta information,
 see `generate_trajectory_dataset_par.py`) from agent rollout trajectories.
 
-Before running `./generate_dataset_par.sh` add the _pointgoal-navigation_ root directory to the _PYTHONPATH_ 
+Before running `./generate_dataset_par.sh` (or `python generate_trajectory_dataset_par.py`) 
+add the _pointgoal-navigation_ root directory to the _PYTHONPATH_:
 ```shell
 export PYTHONPATH="<pointgoal-navigation root directory>:${PYTHONPATH}"
 ```
-and link the habitat _data_ directory
+and link the habitat _data_ directory:
 ```shell
 ln -s <path to habitat data directory> <path to pointgoal-navigation>/trajectory-sampling/data/
 ```
-
-Add _COLLISIONS_ measure to the base task config _TASK.MEASUREMENTS_ if it is missing.
 
 ## Multi-process
 
