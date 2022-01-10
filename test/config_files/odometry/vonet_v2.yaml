@@ -1,0 +1,23 @@
+model:
+  type: VONetV2
+  save: True
+  pretrained_checkpoint: null
+  params:
+    encoder:
+      type: resnet50
+      params:
+        depth: 5
+        weights: null
+        in_channels: 8
+        in_height: 180
+        in_width: 320
+        base_planes: 32
+        ngroups: 16 # base_planes // 2
+        num_compression_channels: 35 # 2100 - flat size
+    fc:
+      params:
+        hidden_size: [512, 512]
+        output_size: 4
+        p_dropout: 0.2
+    collision_embedding_size: 0
+    action_embedding_size: 16

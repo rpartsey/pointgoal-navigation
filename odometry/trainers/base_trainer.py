@@ -60,11 +60,11 @@ class BaseTrainer:
         self.optimizer = make_optimizer(self.config.optim, self.model.parameters())
         self.warmup_scheduler = (
             make_scheduler(self.config.schedulers.warmup, self.optimizer)
-            if self.config.schedulers.warmup is not None else None
+            if hasattr(self.config, 'schedulers') and self.config.schedulers.warmup is not None else None
         )
         self.lr_scheduler =(
             make_scheduler(self.config.schedulers.lr, self.optimizer)
-            if self.config.schedulers.lr is not None else None
+            if hasattr(self.config, 'schedulers') and self.config.schedulers.lr is not None else None
         )
 
     def init_distrib(self):
