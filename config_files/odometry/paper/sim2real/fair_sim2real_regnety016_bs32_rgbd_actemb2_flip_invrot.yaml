@@ -13,7 +13,7 @@ train:
   dataset:
     type: EgoMotionDatasetResized
     params:
-      data_root: <sim2real dataset path (contains 'gibson' directory)>
+      data_root: /checkpoint/maksymets/data/vo_dataset_sim2real
       environment_dataset: gibson
       split: train
       invert_rotations: True
@@ -62,7 +62,7 @@ val:
   dataset:
     type: EgoMotionDatasetResized
     params:
-      data_root: <sim2real dataset path (contains 'gibson' directory)>
+      data_root: /checkpoint/maksymets/data/vo_dataset_sim2real
       environment_dataset: gibson
       split: val
       invert_rotations: False
