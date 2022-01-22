@@ -5,6 +5,7 @@ import random
 import numpy as np
 import torch
 import torch.distributed
+from collections import OrderedDict
 from torch.utils.tensorboard import SummaryWriter
 
 from habitat_baselines.rl.ddppo.algo.ddp_utils import get_distrib_size, init_distrib_slurm, rank0_only
@@ -52,7 +53,11 @@ class BaseTrainer:
         self.device = torch.device(self.config.device)
         self.model = make_model(self.config.model).to(self.device)
         if hasattr(self.config.model, 'pretrained_checkpoint') and self.config.model.pretrained_checkpoint is not None:
-            self.model.load_state_dict(torch.load(self.config.model.pretrained_checkpoint, map_location=self.device))
+            checkpoint = torch.load(self.config.model.pretrained_checkpoint, map_location=self.device)
+            new_checkpoint = OrderedDict()
+            for k, v in checkpoint.items():
+                new_checkpoint[k.replace('module.', '')] = v
+            self.model.load_state_dict(new_checkpoint)
         if self.is_distributed():
             self.model = init_distributed(self.model, self.device, find_unused_params=True)
 

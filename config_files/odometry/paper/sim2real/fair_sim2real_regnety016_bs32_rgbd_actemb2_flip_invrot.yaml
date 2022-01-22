@@ -1,4 +1,4 @@
-experiment_name: fair_sim2real_regnety016_bs32_rgbd_actemb2_flip_invrot
+experiment_name: fair_sim2real_regnety016_bs32_rgbd_actemb2_flip_invrot2
 log_dir: ../experiments
 epochs: 100
 device: cuda:0
@@ -108,7 +108,7 @@ val:
 model:
   type: VONetV4
   save: True
-  pretrained_checkpoint: null #/home/rpartsey/code/3d-navigation/pointgoal-navigation/experiments/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poseloss1._1._180x320_embedd_act_vflip_hc2021_vo3/best_checkpoint_36e.pt
+  pretrained_checkpoint: /private/home/maksymets/experiments/fair_sim2real_regnety016_bs32_rgbd_actemb2_flip_invrot/best_checkpoint_033e.pt # null #/home/rpartsey/code/3d-navigation/pointgoal-navigation/experiments/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poseloss1._1._180x320_embedd_act_vflip_hc2021_vo3/best_checkpoint_36e.pt
   params:
     encoder:
       type: timm-regnety_016
