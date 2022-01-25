@@ -21,29 +21,94 @@ import habitat_extensions.tasks.nav.nav # noqa - required to register TopDownMap
 
 cv2 = try_cv2_import()
 
+POINT_PADDING = 4
+xy_points = [
+    # row 1:
+    [350, 160],
+    [547, 140],
+    [730,  80],
+    # row 2:
+    [370, 280],
+    [490, 280],
+    [745, 260],
+    # row 3:
+    [360, 555],
+    [445, 480],
+    [680, 455],
+    [847, 430],
+    # row 4:
+    [380, 670],
+    [515, 680],
+    [880, 665],
+    # row 5:
+    [380, 870],
+    [515, 880],
+    [715, 910],
+    [895, 880],
+    # row 6:
+    [115, 1078],
+    [315, 1100],
+    [515, 1080],
+    [715, 1120],
+    [955, 1085],
+    # row 7:
+    [325, 1300],
+    [750, 1240],
+    [925, 1330],
+]
 
-def colorize_draw_agent(topdown_map_info: Dict[str, Any]):
+def colorize_draw_agent(topdown_map_info: Dict[str, Any], episode):
     r"""Given the output of the TopDownMap measure, colorizes the map, draws the agent.
 
     :param topdown_map_info: The output of the TopDownMap measure
     :param output_height: The desired output height
     """
     top_down_map = topdown_map_info["map"]
-    top_down_map = maps.colorize_topdown_map(
+    top_down_map_colorized = maps.colorize_topdown_map(
         top_down_map, topdown_map_info["fog_of_war_mask"]
     )
+
+    source_point_idx, target_point_idx = episode.episode_id.split('x')
+    source_point_idx, target_point_idx = int(source_point_idx.lstrip()), int(target_point_idx.lstrip())
+    source_point = xy_points[source_point_idx-1]
+    target_point = xy_points[target_point_idx-1]
+
+    fog_of_war_desat_amount = 0.85
+    fog_of_war_mask = np.zeros_like(top_down_map)
+
+    cv2.circle(fog_of_war_mask, (target_point[0], target_point[1]), 36, 1, -1)
+
+    if fog_of_war_mask is not None:
+        fog_of_war_desat_values = np.array([[fog_of_war_desat_amount], [1.0]])
+        # Only desaturate things that are valid points as only valid points get revealed
+        desat_mask = top_down_map != maps.MAP_INVALID_POINT
+
+        top_down_map_colorized[desat_mask] = (
+                top_down_map_colorized * fog_of_war_desat_values[fog_of_war_mask]
+        ).astype(np.uint8)[desat_mask]
+
+    top_down_map_colorized[
+        source_point[1] - POINT_PADDING: source_point[1] + POINT_PADDING + 1,
+        source_point[0] - POINT_PADDING: source_point[0] + POINT_PADDING + 1,
+    ] = [0, 0, 200]
+
+    top_down_map_colorized[
+        target_point[1] - POINT_PADDING: target_point[1] + POINT_PADDING + 1,
+        target_point[0] - POINT_PADDING: target_point[0] + POINT_PADDING + 1,
+    ] = [200, 0, 0]
+
     map_agent_pos = topdown_map_info["agent_map_coord"]
     top_down_map = maps.draw_agent(
-        image=top_down_map,
+        image=top_down_map_colorized,
         agent_center_coord=map_agent_pos,
         agent_rotation=topdown_map_info["agent_angle"],
-        agent_radius_px=min(top_down_map.shape[0:2]) // 32,
+        agent_radius_px=min(top_down_map_colorized.shape[0:2]) // 32,
     )
 
-    if top_down_map.shape[0] > top_down_map.shape[1]:
-        top_down_map = np.rot90(top_down_map, 1)
+    if top_down_map_colorized.shape[0] > top_down_map_colorized.shape[1]:
+        top_down_map_colorized = np.rot90(top_down_map, 1)
 
-    return top_down_map
+    return top_down_map_colorized
 
 
 def collect_interactive_map_images():
@@ -93,23 +158,30 @@ def collect_interactive_map_images():
 
     config.TASK_CONFIG = get_config(task_config_file)
     config.TASK_CONFIG.defrost()
+    config.TASK_CONFIG.ENVIRONMENT.ITERATOR_OPTIONS.SHUFFLE = False
     config.TASK_CONFIG.DATASET.DATA_PATH = 'data/datasets/pointnav/gibson/v2/{split}/{split}.json.gz'
     config.TASK_CONFIG.DATASET.SCENES_DIR = 'data/scene_datasets/'
-    config.TASK_CONFIG.DATASET.SPLIT = 'val'
-    config.TASK_CONFIG.DATASET.CONTENT_SCENES = [scene_name]
-    config.TASK_CONFIG.TASK.MEASUREMENTS.append('TOP_DOWN_MAP')
+    config.TASK_CONFIG.DATASET.SPLIT = 'interactive_map'
+    # config.TASK_CONFIG.DATASET.CONTENT_SCENES = [scene_name]
+    config.TASK_CONFIG.TASK.MEASUREMENTS.extend(['TOP_DOWN_MAP', 'COLLISIONS'])
+    config.TASK_CONFIG.TASK.TOP_DOWN_MAP.LINE_THICKNESS = 8
+    config.TASK_CONFIG.TASK.TOP_DOWN_MAP.METERS_PER_PIXEL = 0.01
+    config.TASK_CONFIG.TASK.TOP_DOWN_MAP.FOG_OF_WAR.DRAW = False
     config.freeze()
 
     agent = PPOAgentV2(config, pointgoal_estimator)
 
     agg_metrics = defaultdict(float)
 
-    num_val_episodes = 20 # 71
+    num_val_episodes = 24
     with Env(config=config.TASK_CONFIG) as env:
         episodes_count = 0
         for episode in tqdm(range(num_val_episodes)):
-            agent.reset()
             observations = env.reset()
+            agent.reset()
+
+            if not env.current_episode.episode_id.startswith('01x'):
+                continue
 
             current_episode = env.current_episode
             dest_episode_dir = os.path.join(dest_scene_dir, f'episode_{current_episode.episode_id.zfill(2)}')
@@ -135,6 +207,7 @@ def collect_interactive_map_images():
                 metrics = env.get_metrics()
                 td_map_info = metrics.pop('top_down_map')
 
+
                 # save frames:
                 step_str = f'step_{str(step).zfill(3)}'
                 cv2.imwrite(os.path.join(dest_rgb_dir, f'{step_str}.png'), cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
@@ -142,9 +215,10 @@ def collect_interactive_map_images():
                 depth_16bit = (depth.astype(np.float32) * np.iinfo(np.uint16).max).astype(np.uint16)
                 cv2.imwrite(os.path.join(dest_depth_dir, f'{step_str}.png'), depth_16bit)
 
-                top_down_map = colorize_draw_agent(td_map_info)
+                top_down_map = colorize_draw_agent(td_map_info, current_episode)
                 cv2.imwrite(os.path.join(dest_td_map_dir, f'{step_str}.png'), cv2.cvtColor(top_down_map, cv2.COLOR_RGB2BGR))
 
+            metrics.pop('collisions')
             for m, v in metrics.items():
                 agg_metrics[m] += v
 
