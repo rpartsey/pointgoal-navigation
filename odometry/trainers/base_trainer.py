@@ -5,6 +5,7 @@ import random
 import numpy as np
 import torch
 import torch.distributed
+from collections import OrderedDict
 from torch.utils.tensorboard import SummaryWriter
 
 from habitat_baselines.rl.ddppo.algo.ddp_utils import get_distrib_size, init_distrib_slurm, rank0_only
@@ -15,6 +16,7 @@ from ..metrics import make_metrics
 from ..optims import make_optimizer
 from ..losses import make_loss
 from ..models.models import init_distributed
+from ..schedulers import make_scheduler
 
 
 class BaseTrainer:
@@ -32,7 +34,8 @@ class BaseTrainer:
         self.device = None
         self.model = None
         self.optimizer = None
-        self.scheduler = None
+        self.lr_scheduler = None
+        self.warmup_scheduler = None
         self.loss_f = None
 
         self.train_writer = None
@@ -50,13 +53,24 @@ class BaseTrainer:
         self.device = torch.device(self.config.device)
         self.model = make_model(self.config.model).to(self.device)
         if hasattr(self.config.model, 'pretrained_checkpoint') and self.config.model.pretrained_checkpoint is not None:
-            self.model.load_state_dict(torch.load(self.config.model.pretrained_checkpoint, map_location=self.device))
+            checkpoint = torch.load(self.config.model.pretrained_checkpoint, map_location=self.device)
+            new_checkpoint = OrderedDict()
+            for k, v in checkpoint.items():
+                new_checkpoint[k.replace('module.', '')] = v
+            self.model.load_state_dict(new_checkpoint)
         if self.is_distributed():
             self.model = init_distributed(self.model, self.device, find_unused_params=True)
 
-        self.optimizer = make_optimizer(self.config.optim, self.model.parameters())
-        self.scheduler = None
         self.loss_f = make_loss(self.config.loss)
+        self.optimizer = make_optimizer(self.config.optim, self.model.parameters())
+        self.warmup_scheduler = (
+            make_scheduler(self.config.schedulers.warmup, self.optimizer)
+            if hasattr(self.config, 'schedulers') and self.config.schedulers.warmup is not None else None
+        )
+        self.lr_scheduler =(
+            make_scheduler(self.config.schedulers.lr, self.optimizer)
+            if hasattr(self.config, 'schedulers') and self.config.schedulers.lr is not None else None
+        )
 
     def init_distrib(self):
         local_rank, tcp_store = init_distrib_slurm(self.config.distrib_backend)
