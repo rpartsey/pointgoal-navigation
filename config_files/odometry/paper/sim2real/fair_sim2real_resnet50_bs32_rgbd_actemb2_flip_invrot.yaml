@@ -1,4 +1,4 @@
-experiment_name: fair_sim2real_resnet50_bs32_rgbd_actemb2_flip_invrot
+experiment_name: fair_sim2real_resnet50_bs32_rgbd_actemb2_flip_invrot2
 log_dir: ../experiments
 epochs: 100
 device: cuda:0

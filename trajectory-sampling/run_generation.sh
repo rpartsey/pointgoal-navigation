@@ -8,7 +8,7 @@
 #SBATCH --mem=450GB #maybe 450, was 500GB
 #SBATCH --time=72:00:00
 #SBATCH --signal=USR1@600
-#SBATCH --partition=prioritylab
+#SBATCH --partition=learnlab
 #SBATCH --open-mode=append
 #SBATCH --comment="EmbodiedAI Challenges 2021"
 
@@ -53,11 +53,11 @@ set -x
 
 srun python -u ./generate_trajectory_dataset_par.py \
   --agent-type spf \
-  --data-dir /checkpoint/maksymets/data/vo_datasets_resized_full \
+  --data-dir /checkpoint/maksymets/data/vo_datasets_mp3d \
   --config-file ../config_files/shortest_path_follower/shortest_path_follower.yaml \
   --base-task-config-file ../config_files/challenge_pointnav2021.local.rgbd.yaml \
-  --dataset gibson \
-  --split train_extra_large \
+  --dataset mp3d \
+  --split train \
   --num-episodes-per-scene 4000 \
   --gpu-ids 0 1 2 3 4 5 6 7 \
   --num-processes-per-gpu 4 \
