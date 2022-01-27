@@ -55,10 +55,11 @@ srun python -u ./generate_trajectory_dataset_par.py \
   --agent-type spf \
   --data-dir /checkpoint/maksymets/data/vo_dataset_sim2real \
   --config-file ../config_files/shortest_path_follower/shortest_path_follower.yaml \
-  --base-task-config-file ../config_files/challenge_pointnav2021.local.rgbd.yaml \
+  --base-task-config-file ../config_files/challenge_pointnav2021_gt_loc_sim2real_hfov.local.rgbd.yaml \
   --dataset gibson \
   --split train \
-  --num-episodes-per-scene 4000 \
+  --num-episodes-per-scene 3000 \
   --gpu-ids 0 1 2 3 4 5 6 7 \
-  --num-processes-per-gpu 4 \
+  --num-processes-per-gpu 6 \
   --pts-frac-per-episode 0.2
+

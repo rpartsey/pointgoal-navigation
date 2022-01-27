@@ -10,7 +10,7 @@
 #SBATCH --signal=USR1@600
 #SBATCH --mail-user=maksymets@gmail.com
 #SBATCH --mail-type=ALL
-#SBATCH --partition=learnfair
+#SBATCH --partition=learnlab
 #SBATCH --open-mode=append
 #SBATCH --comment="CVPR 2022 31 Jan Rebuttal"
 #SBATCH --output=/checkpoint/maksymets/logs/habitat_baselines/ddppo/pointgoal_nav/fair_sim2real_regnety016_bs32_rgbd_actemb2_flip_invrot/log.out
