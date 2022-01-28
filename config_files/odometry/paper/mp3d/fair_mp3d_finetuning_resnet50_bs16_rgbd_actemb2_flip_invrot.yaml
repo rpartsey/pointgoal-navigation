@@ -1,4 +1,4 @@
-experiment_name: fair_sim2real_resnet50_bs32_rgbd_actemb2_flip_invrot2
+experiment_name: fair_mp3d_finetuning_resnet50_bs16_rgbd_actemb2_flip_invrot
 log_dir: ../experiments
 epochs: 100
 device: cuda:0
@@ -13,8 +13,8 @@ train:
   dataset:
     type: EgoMotionDatasetResized
     params:
-      data_root: /checkpoint/maksymets/data/vo_dataset_sim2real
-      environment_dataset: gibson
+      data_root: <vo mp3d dataset path>
+      environment_dataset: mp3d
       split: train
       invert_rotations: True
       num_points: null
@@ -50,7 +50,7 @@ train:
   loader:
     type: EgoDataLoader
     params:
-      batch_size: 32
+      batch_size: 16
       num_workers: 20
       shuffle: False
       sampler: null
@@ -62,8 +62,8 @@ val:
   dataset:
     type: EgoMotionDatasetResized
     params:
-      data_root: /checkpoint/maksymets/data/vo_dataset_sim2real
-      environment_dataset: gibson
+      data_root: <vo mp3d dataset path>
+      environment_dataset: mp3d
       split: val
       invert_rotations: False
       num_points: null
@@ -97,7 +97,7 @@ val:
   loader:
     type: EgoDataLoader
     params:
-      batch_size: 32
+      batch_size: 16
       num_workers: 20
       shuffle: False
       sampler: null
@@ -108,7 +108,7 @@ val:
 model:
   type: VONetV3
   save: True
-  pretrained_checkpoint: null #/home/rpartsey/code/3d-navigation/pointgoal-navigation/experiments/resnet18_bs16_ddepth5_maxd0.5_randomsampling_dropout0.2_poseloss1._1._180x320_embedd_act_vflip_hc2021_vo3/best_checkpoint_36e.pt
+  pretrained_checkpoint: <path to the best VO checkpoint>
   params:
     encoder:
       type: resnet50

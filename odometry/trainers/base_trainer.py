@@ -19,6 +19,23 @@ from ..models.models import init_distributed
 from ..schedulers import make_scheduler
 
 
+def convert_to_refactored_vo_state_dict(checkpoint):
+    new_checkpoint = OrderedDict()
+    for k, v in checkpoint.items():
+        if k.startswith('encoder.0.'):
+            new_checkpoint[k.replace('encoder.0.', 'encoder.')] = v
+        elif k == 'encoder.1.weight':
+            new_checkpoint['compression.0.weight'] = v
+        elif k == 'encoder.2.weight':
+            new_checkpoint['compression.1.weight'] = v
+        elif k == 'encoder.2.bias':
+            new_checkpoint['compression.1.bias'] = v
+        else:
+            new_checkpoint[k] = v
+
+    return new_checkpoint
+
+
 class BaseTrainer:
     def __init__(self, config):
         self.config = config
@@ -54,10 +71,17 @@ class BaseTrainer:
         self.model = make_model(self.config.model).to(self.device)
         if hasattr(self.config.model, 'pretrained_checkpoint') and self.config.model.pretrained_checkpoint is not None:
             checkpoint = torch.load(self.config.model.pretrained_checkpoint, map_location=self.device)
+            # remove 'module.' from state dict key if model was trained in distributed mode
             new_checkpoint = OrderedDict()
             for k, v in checkpoint.items():
                 new_checkpoint[k.replace('module.', '')] = v
-            self.model.load_state_dict(new_checkpoint)
+            checkpoint = new_checkpoint
+            try:
+                self.model.load_state_dict(checkpoint)
+            except RuntimeError as e:
+                checkpoint = convert_to_refactored_vo_state_dict(checkpoint)
+                self.model.load_state_dict(checkpoint)
+
         if self.is_distributed():
             self.model = init_distributed(self.model, self.device, find_unused_params=True)
 
