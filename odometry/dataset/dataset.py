@@ -48,7 +48,7 @@ class EgoMotionDataset(Dataset):
             data_root,
             environment_dataset,
             split,
-            transforms,
+            transforms=None,
             num_points=None,
             invert_rotations=False,
             augmentations=None,
@@ -153,7 +153,8 @@ class EgoMotionDataset(Dataset):
         if self.augmentations is not None:
             item = self.augmentations(item)
 
-        item = self.transforms(item)
+        if self.transforms is not None:
+            item = self.transforms(item)
 
         return item
 
