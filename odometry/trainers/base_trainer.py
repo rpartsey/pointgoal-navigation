@@ -59,7 +59,7 @@ class BaseTrainer:
         self.val_writer = None
 
     def init_trainer(self):
-        self.train_dataset = make_dataset(self.config.train.dataset)
+        self.train_dataset = None # make_dataset(self.config.train.dataset)
         self.train_loader = make_data_loader(self.config.train.loader, self.train_dataset)
         self.train_metric_fns = make_metrics(self.config.train.metrics) if self.config.train.metrics else []
 

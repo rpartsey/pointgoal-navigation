@@ -3,22 +3,22 @@ from collections import namedtuple
 import numpy as np
 import cv2
 from ffcv.writer import DatasetWriter
-from ffcv.fields import NDArrayField, IntField, RGBImageField
+from ffcv.fields import NDArrayField, IntField, FloatField, RGBImageField
 
 from odometry.dataset.dataset import EgoMotionDatasetResized
-from odometry.dataset.utils import get_relative_egomotion
 
 
-DatasetItem = namedtuple(
+DatasetItemTuple = namedtuple(
     'DatasetItem',
     [
-        'source_depth',
         'source_rgb',
-        'target_depth',
+        'source_depth',
         'target_rgb',
+        'target_depth',
         'action',
         'collision',
-        'egomotion'
+        'egomotion_translation',
+        'egomotion_rotation'
     ]
 )
 
@@ -30,67 +30,68 @@ class FFCVEgoMotionDatasetResized(EgoMotionDatasetResized):
         The ffcv.writer.DatasetWriter expects dataset item to of type tuple.
     """
     def __getitem__(self, index):
-        meta = self.metadata[index]
+        assert self.transforms is None, 'The iterable dataset should return raw, not transformed data'
+        assert self.augmentations is None, 'The iterable dataset should return raw, not augmented data'
 
-        egomotion = get_relative_egomotion(meta)
-        rotation = egomotion['rotation']
-        if rotation > np.deg2rad(300):
-            rotation -= (2 * np.pi)
-        elif rotation < -np.deg2rad(300):
-            rotation += (2 * np.pi)
-        egomotion['rotation'] = rotation
+        item_dict = super(FFCVEgoMotionDatasetResized, self).__getitem__(index)
 
-        item = DatasetItem(
-            source_depth=self.read_depth(meta['source_depth_map_path']),
-            source_rgb=self.read_rgb(meta['source_frame_path']),
-            target_depth=self.read_depth(meta['target_depth_map_path']),
-            target_rgb=self.read_rgb(meta['target_frame_path']),
-            action=self.ACTION_TO_ID[meta['action'][0]] - 1,
-            collision=int(meta['collision']),
-            egomotion=np.append(egomotion['translation'], egomotion['rotation'].astype(np.float32))
+        item_tuple = DatasetItemTuple(
+            source_rgb=item_dict['source_rgb'],
+            source_depth=self.convert_depth(item_dict['source_depth']),
+            target_rgb=item_dict['target_rgb'],
+            target_depth=self.convert_depth(item_dict['target_depth']),
+            action=item_dict['action'],
+            collision=item_dict['collision'],
+            egomotion_translation=np.ascontiguousarray(item_dict['egomotion']['translation']),
+            egomotion_rotation=item_dict['egomotion']['rotation']
         )
 
-        return item
+        return item_tuple
 
     @staticmethod
     def read_depth(path):
         return cv2.imread(path, cv2.IMREAD_UNCHANGED)
 
+    @staticmethod
+    def convert_depth(depth):
+        assert np.issubdtype(depth.dtype, np.uint16)
+        dtype_min_val_diff = np.iinfo(np.uint16).min - np.iinfo(np.int16).min
+        return (depth.astype(np.int32) - dtype_min_val_diff).astype(np.int16)
 
-# RGB_SHAPE = (180, 320, 3)
-# RGB_DTYPE = np.dtype(np.uint8)
 
-DEPTH_SHAPE = (180, 320)
-DEPTH_DTYPE = np.dtype(np.uint16)
+def main():
+    data_root = '/home/rpartsey/data/habitat/vo_datasets/hc_2021'
+    environment_dataset = 'gibson'
+    split = 'val'
 
-EGOMOTION_SHAPE = (4,)
-EGOMOTION_DTYPE = np.dtype(np.float32)
+    dataset = FFCVEgoMotionDatasetResized(
+        data_root,
+        environment_dataset,
+        split
+    )
 
-depth_field = NDArrayField(shape=DEPTH_SHAPE, dtype=DEPTH_DTYPE)
-rgb_field = RGBImageField(write_mode='raw')
+    DEPTH_SHAPE = (180, 320)
+    DEPTH_DTYPE = np.dtype(np.int16)
 
-data_root = '/home/rpartsey/data/habitat/vo_datasets/hc_2021'
-environment_dataset = 'gibson'
-split = 'val'
+    EGOMOTION_TRANSLATION_SHAPE = (3,)
+    EGOMOTION_TRANSLATION_DTYPE = np.dtype(np.float32)
 
-dataset = FFCVEgoMotionDatasetResized(
-    data_root,
-    environment_dataset,
-    split,
-    # num_points=1000
-)
+    write_path = '/home/rpartsey/data/habitat/vo_datasets/hc_2021/gibson_ffcv_format/val.beton'
+    num_workers = -1
 
-write_path = '/home/rpartsey/data/habitat/vo_datasets/hc_2021/gibson_ffcv_format/val.beton'
-num_workers = 32
+    writer = DatasetWriter(write_path, {
+        'source_rgb': RGBImageField(write_mode='raw'),
+        'source_depth': NDArrayField(shape=DEPTH_SHAPE, dtype=DEPTH_DTYPE),
+        'target_rgb': RGBImageField(write_mode='raw'),
+        'target_depth': NDArrayField(shape=DEPTH_SHAPE, dtype=DEPTH_DTYPE),
+        'action': IntField(),
+        'collision': IntField(),
+        'egomotion_translation': NDArrayField(shape=EGOMOTION_TRANSLATION_SHAPE, dtype=EGOMOTION_TRANSLATION_DTYPE),
+        'egomotion_rotation': FloatField()
+    }, num_workers=num_workers)
 
-writer = DatasetWriter(write_path, {
-    'source_depth': NDArrayField(shape=DEPTH_SHAPE, dtype=DEPTH_DTYPE),
-    'source_rgb': RGBImageField(write_mode='raw'),
-    'target_depth': NDArrayField(shape=DEPTH_SHAPE, dtype=DEPTH_DTYPE),
-    'target_rgb': RGBImageField(write_mode='raw'),
-    'action': IntField(),
-    'collision': IntField(),
-    'egomotion': NDArrayField(shape=EGOMOTION_SHAPE, dtype=EGOMOTION_DTYPE)
-}, num_workers=num_workers)
+    writer.from_indexed_dataset(dataset)
 
-writer.from_indexed_dataset(dataset)
+
+if __name__ == '__main__':
+    main()
