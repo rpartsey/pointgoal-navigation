@@ -5,7 +5,7 @@ import torch
 from habitat_baselines.common.tensor_dict import TensorDict
 from tqdm import tqdm
 
-from habitat_baselines.rl.ddppo.algo.ddp_utils import rank0_only
+from habitat_baselines.rl.ddppo.ddp_utils import rank0_only
 
 from .base_trainer import BaseTrainer
 from ..utils import transform_batch

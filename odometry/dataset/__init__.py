@@ -1,5 +1,7 @@
 from torchvision.transforms import Compose
 from torch.utils.data.distributed import DistributedSampler
+from ffcv.loader import Loader as FFCVLoader, OrderOption
+from .ffcv_transforms import *
 
 from . import dataset as dataset_module
 from . import transforms as transforms_module
@@ -48,18 +50,38 @@ def make_dataset(dataset_config):
     return dataset
 
 
-def make_data_loader(loader_config, dataset):
-    if hasattr(loader_config, 'is_distributed') and loader_config.is_distributed:
-        sampler = DistributedSampler(dataset)
-        loader_config.params.pop('sampler', None)
+def make_data_loader(config):
+    if config.loader.type == 'FFCVLoader':
+        pipelines = {
+            'source_rgb': [SimpleRGBImageDecoder(), ToTensor(), TPermuteChannels(), TNormalizeRGB()],
+            'source_depth': [NDArrayDecoder(), ToTensor(), TUnSqueeze(3), TPermuteChannels(), TNormalizeD()],
+            'target_rgb': [SimpleRGBImageDecoder(), ToTensor(), TPermuteChannels(), TNormalizeRGB()],
+            'target_depth': [NDArrayDecoder(), ToTensor(), TUnSqueeze(3), TPermuteChannels(), TNormalizeD()],
+            'action': [IntDecoder(), ToTensor()],
+            'collision': [IntDecoder(), ToTensor(),],
+            'egomotion_translation': [NDArrayDecoder(), ToTensor()],
+            'egomotion_rotation': [FloatDecoder(), ToTensor()]
+        }
+        loader = FFCVLoader(
+            config.loader.params.fname,
+            batch_size=config.loader.params.batch_size,
+            num_workers=config.loader.params.num_workers,
+            order=OrderOption[config.loader.params.order],
+            pipelines=pipelines
+        )
     else:
-        sampler = make_sampler(loader_config, dataset)
+        dataset = make_dataset(config.dataset)
+        if hasattr(config.loader, 'is_distributed') and config.loader.is_distributed:
+            sampler = DistributedSampler(dataset)
+            config.loader.params.pop('sampler', None)
+        else:
+            sampler = make_sampler(config.loader, dataset)
 
-    data_loader_type = getattr(dataset_module, loader_config.type)
-    loader = data_loader_type.from_config(
-        loader_config,
-        dataset,
-        sampler
-    )
+        data_loader_type = getattr(dataset_module, config.loader.type)
+        loader = data_loader_type.from_config(
+            config.loader,
+            dataset,
+            sampler
+        )
 
     return loader

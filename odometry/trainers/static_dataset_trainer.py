@@ -2,11 +2,11 @@ from collections import defaultdict
 from datetime import datetime
 
 import torch
+from habitat_baselines.rl.ddppo.ddp_utils import rank0_only
 from tqdm import tqdm
 
-from habitat_baselines.rl.ddppo.algo.ddp_utils import rank0_only
-
 from .base_trainer import BaseTrainer
+from ..dataset import transform_batch_ffcv
 from ..utils import transform_batch
 from ..metrics import action_id_to_action_name
 
@@ -28,7 +28,7 @@ class StaticDatasetTrainer(BaseTrainer):
         metrics = defaultdict(lambda: 0)
 
         for data in tqdm(self.train_loader, disable=self.is_distributed()):
-            data, embeddings, target = transform_batch(data)
+            data, embeddings, target = transform_batch_ffcv(data)
             data = data.float().to(self.device)
             target = target.float().to(self.device)
             for k, v in embeddings.items():

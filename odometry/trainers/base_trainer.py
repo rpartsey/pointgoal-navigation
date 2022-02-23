@@ -8,7 +8,7 @@ import torch.distributed
 from collections import OrderedDict
 from torch.utils.tensorboard import SummaryWriter
 
-from habitat_baselines.rl.ddppo.algo.ddp_utils import get_distrib_size, init_distrib_slurm, rank0_only
+from habitat_baselines.rl.ddppo.ddp_utils import get_distrib_size, init_distrib_slurm, rank0_only
 
 from ..dataset import make_dataset, make_data_loader
 from ..models import make_model
@@ -40,11 +40,9 @@ class BaseTrainer:
     def __init__(self, config):
         self.config = config
 
-        self.train_dataset = None
         self.train_loader = None
         self.train_metric_fns = None
 
-        self.val_dataset = None
         self.val_loader = None
         self.val_metric_fns = None
 
@@ -59,12 +57,10 @@ class BaseTrainer:
         self.val_writer = None
 
     def init_trainer(self):
-        self.train_dataset = None # make_dataset(self.config.train.dataset)
-        self.train_loader = make_data_loader(self.config.train.loader, self.train_dataset)
+        self.train_loader = make_data_loader(self.config.train)
         self.train_metric_fns = make_metrics(self.config.train.metrics) if self.config.train.metrics else []
 
-        self.val_dataset = make_dataset(self.config.val.dataset)
-        self.val_loader = make_data_loader(self.config.val.loader, self.val_dataset)
+        self.val_loader = make_data_loader(self.config.val)
         self.val_metric_fns = make_metrics(self.config.val.metrics) if self.config.val.metrics else []
 
         self.device = torch.device(self.config.device)
