@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Is Mapping Necessary for Realistic PointGoal Navigation?</title>
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet" type="text/css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p"
+            crossorigin="anonymous"></script>
+    <link href="main/main.css" rel="stylesheet">
+
+
+</head>
+<body>
+<div class="jumbotron jumbotron-fluid">
+    <div class="container-fluid bg-light pt-5 m">
+        <div class="row justify-content-center">
+            <div class="col-8">
+                <h2 class="text-center">Is Mapping Necessary for Realistic PointGoal Navigation?</h2>
+                <h4 class="text-center pb-2"><a href="https://cvpr2022.thecvf.com/" class="text-decoration-none"
+                                                target="_blank">CVPR 2022</a></h4>
+                <hr>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid pt-3">
+        <div class="section">
+            <div class="row justify-content-center">
+                <div class="col-sm-8">
+                    <p>
+                        Can an autonomous agent navigate in a new environment without ever building an explicit map?
+                        For the task of PointGoal navigation (`Go to $\Delta x$, $\Delta y$`) under idealized
+                        settings (no RGB-D and actuation noise, perfect GPS+Compass), the answer is a clear `yes`
+                        &mdash; map-less neural models composed of task-agnostic components (CNNs and RNNs) trained with
+                        large-scale reinforcement learning achieve 100% Success on a standard dataset
+                        (Gibson [<a class="text-decoration-none" href="#ramakrishnan2021habitat">1</a>]). However, for
+                        PointNav in a <em>realistic</em> setting (RGB-D and actuation noise, no GPS+Compass), this is an
+                        open question; one we tackle in this paper. The strongest published result for this task is
+                        71.7% Success [<a class="text-decoration-none" href="#zhao2021the">2</a>]<sup>1</sup>.
+                        First, we identify the main (perhaps, only) cause of the drop in performance: absence of
+                        GPS+Compass. An agent with perfect GPS+Compass faced with RGB-D sensing and actuation noise
+                        achieves 99.8% Success (Gibson-v2 val). This suggests that (to paraphrase a meme)
+                        robust visual odometry is all we need for realistic PointNav; if we can achieve that, we can
+                        ignore the sensing and actuation noise. With that as our operating hypothesis, we develop
+                        human-annotation-free data-augmentation techniques to train neural models for visual odometry.
+                        Taken together with our other proposed methods, we advance state of the art on the Habitat
+                        Realistic PointNav Challenge &mdash; SPL by 40% (relative), 53 to 74, and Success by 31%
+                        (relative), 71 to 94. While our approach does not saturate or `solve` this dataset, this strong
+                        improvement provides evidence consistent with the hypothesis that explicit mapping may not be
+                        necessary for navigation, even in realistic setting.
+                    </p>
+                    <p><sup>1</sup>According to Habitat Challenge 2020 PointNav benchmark held annually. A concurrent
+                        as-yet-unpublished result has reported 91% Success on 2021's benchmark, but we are unable to
+                        comment on the details because an
+                        associated report is not available.</p>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="row justify-content-center">
+                <div class="col-sm-8">
+                    <h3 class="text-center">Online Leaderboard</h3>
+                    <hr>
+                    <a href="https://eval.ai/web/challenges/challenge-page/802/leaderboard/2192" target="_blank"><img
+                            class="img-fluid"
+                            src="img/leaderboard.png"></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="row justify-content-center">
+                <div class="col-sm-8 pb-3">
+                    <h3 class="text-center">Results</h3>
+                    <hr>
+                    <div class="dataset">
+                        <h4>Gibson 4+ (val)</h4>
+                        <div class="video">
+                            <iframe src="https://www.youtube.com/embed/videoseries?list=PLOpaOPpuhyVGdV0TiYkLaG-vYwpYmNqU4"
+                                    allowfullscreen></iframe>
+                        </div>
+                        <img class="img-fluid pt-3" src="img/gibson.png">
+                    </div>
+                    <div class="dataset pt-5">
+                        <h4>Matterport3D (val)</h4>
+                        <div class="video">
+                            <iframe src="https://www.youtube.com/embed/videoseries?list=PLOpaOPpuhyVHltiNA2WZ4HMGW-NfiDXOs"
+                                    allowfullscreen></iframe>
+                        </div>
+                        <img class="img-fluid pt-3" src="img/matterport.png">
+                    </div>
+                    <p class="pt-3">Agent is asked to navigate from blue square to green square. The color of the
+                        trajectory
+                        changes from dark to light over time (cv2.COLORMAP_WINTER for agent's trajectory,
+                        cv2.COLORMAP_AUTUMN for agent's estimate of its trajectory).</p>
+                    <p>Navigation videos and top-down maps were generated during two different agent runs, which means
+                        other actuation and sensing noise were applied, so the trajectories on video and image may be
+                        slightly different.</p>
+                    <p>To see navigation metrics for episodes from the playlists above, please, open the video in a
+                        separate tab and check the video description.</p>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="row justify-content-center">
+                <div class="col-sm-8">
+                    <h3 class="text-center">References</h3>
+                    <hr>
+                    <ol>
+                        <li id="ramakrishnan2021habitat">Santhosh K. Ramakrishnan, Aaron Gokaslan, Erik Wijmans,
+                            Oleksandr Maksymets, Alexander Clegg,
+                            John Turner, EricUndersander, Wojciech Galuba, Andrew Westbury, Angel X.
+                            Chang, Manolis Savva, Yili Zhao, and Dhruv Batra. Habitat-matterport 3d dataset (hm3d): 1000
+                            large-scale 3d environ-ments for embodied ai.arXiv preprint arXiv:2109.08238,2021
+                        </li>
+                        <li id="zhao2021the">Xiaoming Zhao, Harsh Agrawal, Dhruv Batra, and Alexan-der G. Schwing.The
+                            surprising effectiveness of visualodometry techniques for embodied pointgoal navigation.
+                            InProceedings of the IEEE/CVF International Conference onComputer Vision, pages 16127–16136,
+                            2021
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script async>
+    window.MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']]
+        }
+    };
+</script>
+</body>
+</html>
