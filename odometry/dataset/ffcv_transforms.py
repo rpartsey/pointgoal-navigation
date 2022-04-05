@@ -4,7 +4,7 @@ from torch import Tensor
 from ffcv.transforms import ToTensor
 from ffcv.fields.decoders import NDArrayDecoder, FloatDecoder, IntDecoder, SimpleRGBImageDecoder
 
-from convert_dataset_into_ffcv_format import DatasetItemTuple
+# from convert_dataset_into_ffcv_format import DatasetItemTuple
 
 
 def transform_batch_ffcv(batch):
@@ -84,7 +84,7 @@ class TNormalizeD(torch.nn.Module):
         self._dtype_min_val_diff = np.iinfo(np.uint16).min - np.iinfo(np.int16).min
 
     def forward(self, tensor: Tensor):
-        return (tensor + self._dtype_min_val_diff) / self._scale
+        return (tensor.type(torch.int32) + self._dtype_min_val_diff) / self._scale
 
 
 class TUnSqueeze(torch.nn.Module):

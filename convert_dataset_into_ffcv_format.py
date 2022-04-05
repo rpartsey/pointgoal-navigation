@@ -35,6 +35,14 @@ class FFCVEgoMotionDatasetResized(EgoMotionDatasetResized):
 
         item_dict = super(FFCVEgoMotionDatasetResized, self).__getitem__(index)
 
+        if 'egomotion' in item_dict:
+            rotation = item_dict['egomotion']['rotation']
+            if rotation > np.deg2rad(300):
+                rotation -= (2 * np.pi)
+            elif rotation < -np.deg2rad(300):
+                rotation += (2 * np.pi)
+            item_dict['egomotion']['rotation'] = rotation
+
         item_tuple = DatasetItemTuple(
             source_rgb=item_dict['source_rgb'],
             source_depth=self.convert_depth(item_dict['source_depth']),

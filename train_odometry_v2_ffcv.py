@@ -8,6 +8,8 @@ from ffcv.fields.decoders import NDArrayDecoder, FloatDecoder, IntDecoder, Simpl
 
 from convert_dataset_into_ffcv_format import DatasetItemTuple
 
+from odometry.config.default import get_config
+
 
 # class TPermuteChannels(torch.nn.Module):
 #     def __init__(self, permutation=(2, 0, 1)):
@@ -22,6 +24,9 @@ from convert_dataset_into_ffcv_format import DatasetItemTuple
 #         })
 #
 #         return new_item_tuple
+from odometry.dataset import make_data_loader
+
+
 def transform_batch_ffcv(batch):
     batch = DatasetItemTuple(*batch)
     source_input, target_input = [], []
@@ -80,7 +85,6 @@ class TPermuteChannels(torch.nn.Module):
         self._permutation = permutation
 
     def forward(self, tensor: Tensor):
-        print('here', tensor.shape)
         return tensor.permute(*self._permutation)
 
 
@@ -100,7 +104,7 @@ class TNormalizeD(torch.nn.Module):
         self._dtype_min_val_diff = np.iinfo(np.uint16).min - np.iinfo(np.int16).min
 
     def forward(self, tensor: Tensor):
-        return (tensor + self._dtype_min_val_diff) / self._scale
+        return (tensor.type(torch.int32) + self._dtype_min_val_diff) / self._scale
 
 
 class TUnSqueeze(torch.nn.Module):
@@ -112,20 +116,32 @@ class TUnSqueeze(torch.nn.Module):
         return tensor.unsqueeze(self._dim)
 
 
-NUM_WORKERS = 1
-BATCH_SIZE = 16
+NUM_WORKERS = 20
+BATCH_SIZE = 32
 ORDERING = OrderOption.RANDOM
+# PIPELINES = {
+#     'source_rgb': [SimpleRGBImageDecoder(), ToTensor(), TPermuteChannels(), TNormalizeRGB()],
+#     'source_depth': [NDArrayDecoder(), ToTensor(), TUnSqueeze(3), TPermuteChannels(),],
+#     'source_depth': [NDArrayDecoder(), ToTensor(), TUnSqueeze(3), TPermuteChannels(), TNormalizeD()],
+#     'target_rgb': [SimpleRGBImageDecoder(), ToTensor(), TPermuteChannels(), TNormalizeRGB()],
+#     'target_depth': [NDArrayDecoder(), ToTensor(), TUnSqueeze(3), TPermuteChannels(), TNormalizeD()],
+#     'target_depth': [NDArrayDecoder(), ToTensor(), TUnSqueeze(3), TPermuteChannels(),],
+#     'action': [IntDecoder(), ToTensor()],
+#     'collision': [IntDecoder(), ToTensor(),],
+#     'egomotion_translation': [NDArrayDecoder(), ToTensor()],
+#     'egomotion_rotation': [FloatDecoder(), ToTensor()]
+# }
+
 PIPELINES = {
     'source_rgb': [SimpleRGBImageDecoder(), ToTensor(), TPermuteChannels(), TNormalizeRGB()],
-    'source_depth': [NDArrayDecoder(), ToTensor(), TUnSqueeze(3), TPermuteChannels(), TNormalizeD()],
-    'target_rgb': [SimpleRGBImageDecoder(), ToTensor(), TPermuteChannels(), TNormalizeRGB()],
-    'target_depth': [NDArrayDecoder(), ToTensor(), TUnSqueeze(3), TPermuteChannels(), TNormalizeD()],
-    'action': [IntDecoder(), ToTensor()],
-    'collision': [IntDecoder(), ToTensor(),],
+    'source_depth': None,
+    'target_rgb': None,
+    'target_depth': None,
+    'action': None,
+    'collision': None,
     'egomotion_translation': [NDArrayDecoder(), ToTensor()],
     'egomotion_rotation': [FloatDecoder(), ToTensor()]
 }
-
 
 ffcv_loader = Loader(
     '/home/rpartsey/data/habitat/vo_datasets/hc_2021/gibson_ffcv_format/val.beton',
@@ -135,21 +151,40 @@ ffcv_loader = Loader(
     pipelines=PIPELINES
 )
 
-for data in ffcv_loader:
+# import time
+#
+# start_time = time.time()
+# for data in ffcv_loader:
+#     pass
+# print(time.time() - start_time)
+
+
+config = get_config('config_files/odometry/resnet50_bs32_rgbd_actemb2.yaml', new_keys_allowed=True)
+loader = make_data_loader(config.val)
+import time
+
+start_time = time.time()
+for data in loader:
+    pass
+print(time.time() - start_time)
+
+    # # print(data)
+    #
+    # # (
+    # #     source_rgb,
+    #     # source_depth,
+    #     # target_rgb,
+    #     # target_depth,
+    #     # action,
+    #     # collision,
+    #     # egomotion_translation,
+    #     # egomotion_rotation
+    # # ) = data
+    #
     # print(data)
 
-    (
-        source_rgb,
-        source_depth,
-        target_rgb,
-        target_depth,
-        action,
-        collision,
-        egomotion_translation,
-        egomotion_rotation
-    ) = data
+    # print(source_rgb.shape)
+    # new_data = transform_batch_ffcv(data)
+    # print(new_data)
 
-    new_data = transform_batch_ffcv(data)
-    print(new_data)
-
-    break
+    # break
