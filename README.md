@@ -158,7 +158,7 @@ Download from Google Drive directly or by using gdown.
 <tr>
     <th>Training scenes</th> 
     <th>Terminal reward</th> 
-    <th>Download link</th>
+    <th>Download</th>
     <th>Task setting</th>
 </tr>
 <tr>
@@ -199,7 +199,7 @@ print(checkpoint['config'])
     <th colspan="2">Embedding</th> 
     <th colspan="2">Train time</th>
     <th rowspan="2">Epoch</th>
-    <th rowspan="2">Download link</th>
+    <th rowspan="2">Download</th>
     <th rowspan="2" style="visibility: hidden"></th>
 </tr> 
 <tr>
@@ -341,8 +341,8 @@ print(checkpoint['config'])
     <td>&#10004;</td> 
     <td>&#10004;</td> 
     <td>&#10004;</td> 
-    <td>?</td>
-    <td><a href="">Link</a></td>
+    <td>32</td>
+    <td><a href="https://drive.google.com/drive/folders/193Ih1w13fdbimB8IO1fgykF4k9Fkk8h1?usp=sharing">Link</a></td>
     <td rowspan="1">MP3D fine-tuned</td>
 </tr> 
 
