@@ -61,7 +61,7 @@ cd pointgoal-navigation
 ln -s <path-to-data-directory> data
 ```
 
-#### Visual odometry dataset
+#### Visual Odometry Dataset
 Visual odometry dataset is collected by sampling pairs of RGB-D observations (and additional information, navigate to 
 `trajectory-sampling` see `generate_trajectory_dataset_par.py`) from agent rollout trajectories.
 
@@ -110,12 +110,14 @@ The above command was used to generate a validation dataset (disk space: 16.2 GB
 
 ## Training
 
-### Navigation policy
+### Navigation Policy
+
+
 We use policy training pipeline from [habitat_baselines](https://github.com/facebookresearch/habitat-lab/tree/main/habitat_baselines).
 
 See `navigation/experiments/experiment_launcher.sh`
 
-### Visual odometry
+### Visual Odometry
 Experiment configuration parameters are set in the _yaml_ file. See `config_files/odometry/paper/*`.
 
 To train the visual odometry model, run:
@@ -148,13 +150,48 @@ python agent.py \
 ```
 
 ## Pre-trained Models
+Download from Google Drive directly or by using gdown.
 
-### Gibson val
+### Navigation Policy
+<table> 
+<caption></caption>
+<tr>
+    <th>Training scenes</th> 
+    <th>Terminal reward</th> 
+    <th>Download link</th>
+    <th>Task setting</th>
+</tr>
+<tr>
+    <td>Gibson 4+</td> 
+    <td>2.5 Success</td> 
+    <td><a href="">Link</a></td>
+    <td>Habitat Challenge 2021</td>
+</tr>
+<tr>
+    <td>Gibson 0+</td> 
+    <td>2.5 SPL</td> 
+    <td><a href="">Link</a></td>
+    <td>Habitat Challenge 2021</td>
+</tr> 
+<tr>
+    <td>HM3D-MP3D-Gibson 0+</td> 
+    <td>2.5 SPL</td> 
+    <td><a href="">Link</a></td>
+    <td>Sim2real</td>
+</tr> 
+</table>
 
-[//]: # (rowspan="2")
+To see the policy training config, download the checkpoint and execute command below:
+```python
+import torch
+checkpoint = torch.load('path-to-the-policy-checkpoint')
+print(checkpoint['config'])
+```
+
+### Visual Odometry
 
 <table> 
-<caption>Table caption</caption> 
+<caption></caption> 
 <tr> 
     <th rowspan="2"></th>
     <th rowspan="2">Dataset Size(M)</th> 
@@ -162,7 +199,8 @@ python agent.py \
     <th colspan="2">Embedding</th> 
     <th colspan="2">Train time</th>
     <th rowspan="2">Epoch</th>
-    <th rowspan="2">Model checkpoint</th>
+    <th rowspan="2">Download link</th>
+    <th rowspan="2" style="visibility: hidden"></th>
 </tr> 
 <tr>
     <th>Encoder</th> 
@@ -182,7 +220,8 @@ python agent.py \
     <td></td> 
     <td></td>
     <td>50</td>
-    <td>Link</td>
+    <td><a href="https://drive.google.com/drive/folders/1Mnv1ZXxlH-3S7F7TEW8OXo7heh0ZruwY?usp=sharing">Link</a></td>
+    <td rowspan="10">Gibson</td>
 </tr> 
 <tr> 
     <td>2</td> 
@@ -194,7 +233,7 @@ python agent.py \
     <td></td> 
     <td></td>
     <td>43</td>
-    <td>Link</td>
+    <td><a href="https://drive.google.com/drive/folders/1rI_TtBvpe24U3p-hxl8Ccg1SxI0VAQcZ?usp=sharing">Link</a></td>
 </tr> 
 <tr> 
     <td>3</td> 
@@ -206,7 +245,7 @@ python agent.py \
     <td></td> 
     <td></td>
     <td>44</td>
-    <td>Link</td>
+    <td><a href="https://drive.google.com/drive/folders/1UDyLzxUkjnpY3knHHW5vWjVeScwM3yYj?usp=sharing">Link</a></td>
 </tr> 
 <tr> 
     <td>4</td> 
@@ -218,7 +257,7 @@ python agent.py \
     <td></td>
     <td>&#10004;</td>
     <td>48</td>
-    <td>Link</td>
+    <td><a href="https://drive.google.com/drive/folders/1ujKBuhMFI9pv8ji5I1Iz_vWccU-dNRjB?usp=sharing">Link</a></td>
 </tr> 
 <tr> 
     <td>5</td> 
@@ -230,7 +269,7 @@ python agent.py \
     <td>&#10004;</td> 
     <td></td>
     <td>50</td>
-    <td>Link</td>
+    <td><a href="https://drive.google.com/drive/folders/1M_LyxGE-qFpRhgRzDunB8Elnf4ElY4aW?usp=sharing">Link</a></td>
 </tr> 
 <tr> 
     <td>6</td> 
@@ -242,7 +281,7 @@ python agent.py \
     <td>&#10004;</td> 
     <td>&#10004;</td>
     <td>50</td>
-    <td>Link</td>
+    <td><a href="https://drive.google.com/drive/folders/1KURvdGKb7CeZ_Y4U-69wkmjVFOmXCcdh?usp=sharing">Link</a></td>
 </tr> 
 <tr> 
     <td>7</td> 
@@ -254,7 +293,7 @@ python agent.py \
     <td></td> 
     <td></td>
     <td>48</td>
-    <td>Link</td>
+    <td><a href="https://drive.google.com/drive/folders/1LflyaYl1Vjpkhhl3kZkKEiZnEcKa4Vq0?usp=sharing">Link</a></td>
 </tr> 
 <tr> 
     <td>8</td> 
@@ -266,7 +305,7 @@ python agent.py \
     <td>&#10004;</td> 
     <td>&#10004;</td> 
     <td>50</td>
-    <td>Link</td>
+    <td><a href="https://drive.google.com/drive/folders/1Nle9EFgi-RAjkwSZ5j-cEzuxOA21XolB?usp=sharing">Link</a></td>
 </tr> 
 <tr> 
     <td>9</td> 
@@ -278,18 +317,49 @@ python agent.py \
     <td>&#10004;</td> 
     <td>&#10004;</td> 
     <td>48</td>
-    <td>Link</td>
+    <td><a href="https://drive.google.com/drive/folders/1ja9Dx8fnzv1lypvNMKqUrloDjbHLvcDO?usp=sharing">Link</a></td>
+</tr> 
+<tr> 
+    <td>10</td> 
+    <td>5</td> 
+    <td>ResNet50</td> 
+    <td>7.6</td> 
+    <td>&#10004;</td> 
+    <td>&#10004;</td> 
+    <td>&#10004;</td> 
+    <td>&#10004;</td> 
+    <td>64</td>
+    <td><a href="https://drive.google.com/drive/folders/14PYwFKum8m1CYdrt9IyOWj6wlFFyr0Ly?usp=sharing">Link</a></td>
+</tr> 
+
+<tr> 
+    <td>11</td> 
+    <td>?</td> 
+    <td>ResNet50</td> 
+    <td>7.6</td> 
+    <td>&#10004;</td> 
+    <td>&#10004;</td> 
+    <td>&#10004;</td> 
+    <td>&#10004;</td> 
+    <td>?</td>
+    <td><a href="">Link</a></td>
+    <td rowspan="1">MP3D fine-tuned</td>
+</tr> 
+
+<tr> 
+    <td>12</td> 
+    <td>?</td> 
+    <td>ResNet50</td> 
+    <td>7.6</td> 
+    <td>&#10004;</td> 
+    <td>&#10004;</td> 
+    <td>&#10004;</td> 
+    <td>&#10004;</td> 
+    <td>56</td>
+    <td><a href="https://drive.google.com/drive/folders/12XUM5Fd0ru6cWb_PAm3rIvsvDwK75mnD?usp=sharing">Link</a></td>
+    <td rowspan="1">Sim2real</td>
 </tr> 
 </table>
-
-
-### Reality
-
-You can download pretrained models here:
-
-- [My awesome model](https://drive.google.com/mymodel.pth) trained on ImageNet using parameters x,y,z. 
-
->📋  Give a link to where/how the pretrained models can be downloaded and how they were trained (if applicable).  Alternatively you can have an additional column in your results table with a link to the models.
 
 ## Results
 
