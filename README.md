@@ -52,7 +52,7 @@ Download Gibson and Matterport3D scenes by following the instructions in Habitat
 Download Gibson PointGoal navigation episodes corresponding to Sim2LoCoBot experiment configuration 
 (row 2 in [Task dataset](https://github.com/facebookresearch/habitat-lab/tree/challenge-2021#task-datasets) table; 
 aka. Gibson-v2 episodes). Matterport3D episodes following the same configuration didn't exist and were generated in scope of IMN-RPG research. 
-Train/val episodes can be downloaded here (TODO: add links).
+Train/val episodes can be downloaded [here](https://drive.google.com/file/d/1XJbx_oV2eK7ZXBTssfv-bij1zTS7Mhz9/view?usp=sharing).
 
 
 After data downloading create a symlink to `data/` directory in the IMN-RPG project root:
