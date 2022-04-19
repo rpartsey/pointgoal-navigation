@@ -78,7 +78,7 @@ To generate training dataset, run:
 ```bash
 python generate_trajectory_dataset_par.py \
 --agent-type spf \
---data-dir /home/rpartsey/data/habitat/vo_datasets/hc_2021 \
+--data-dir data/vo_datasets/hc_2021 \
 --config-file ../config_files/shortest_path_follower/shortest_path_follower.yaml \
 --base-task-config-file ../config_files/challenge_pointnav2021.local.rgbd.yaml \
 --dataset gibson \
@@ -95,7 +95,7 @@ To generate validation dataset, run:
 ```bash
 python generate_trajectory_dataset_par.py \
 --agent-type spf \
---data-dir /home/rpartsey/data/habitat/vo_datasets/hc_2021 \
+--data-dir data/vo_datasets/hc_2021 \
 --config-file ../config_files/shortest_path_follower/shortest_path_follower.yaml \
 --base-task-config-file ../config_files/challenge_pointnav2021.local.rgbd.yaml \
 --dataset gibson \
@@ -140,17 +140,17 @@ python agent.py \
 --agent-type PPOAgentV2 \
 --input-type depth \
 --evaluation local \
---ddppo-checkpoint-path <path to policy checkpoint> \
+--ddppo-checkpoint-path <path-to-policy-checkpoint> \
 --ddppo-config-path config_files/ddppo/ddppo_pointnav_2021.yaml \
---vo-config-path <path to vo config> \
---vo-checkpoint-path <path to vo checkpoint> \
+--vo-config-path <path-to-vo-config> \
+--vo-checkpoint-path <path-to-vo-checkpoint> \
 --pth-gpu-id 0 \
 --rotation-regularization-on \
 --vertical-flip-on
 ```
 
 ## Pre-trained Models
-Download from Google Drive directly or by using gdown.
+Checkpoints may be downloaded from Google Drive manually or by using gdown.
 
 ### Navigation Policy
 <table> 
@@ -362,40 +362,57 @@ print(checkpoint['config'])
 </table>
 
 ## Results
+We improve Realistic PointNav agent navigation performance from 64% Success / 52% SPL to 96% Success and 77% SPL on
+the Gibson val split, and achieve the following performance on:
 
-Our model achieves the following performance on :
+<table> 
+<caption>
 
-### [Image Classification on ImageNet](https://paperswithcode.com/sota/image-classification-on-imagenet)
+[Habitat Challenge 2021](https://eval.ai/web/challenges/challenge-page/802/leaderboard/2192) benchmark test-standard split (retrieved 2021-Nov-16).
 
-| Model name         | Top 1 Accuracy  | Top 5 Accuracy |
-| ------------------ |---------------- | -------------- |
-| My awesome model   |     85%         |      95%       |
+</caption> 
+<tr> 
+    <th>Rank</th>
+    <th>Participant team</th> 
+    <th>SPL</th> 
+    <th>SoftSPL</th> 
+    <th>Distance to goal</th> 
+    <th>Success</th>
+</tr> 
+<tr> 
+    <td>1</td> 
+    <td>VO for Realistic PointGoal (Ours)</td> 
+    <td>0.74</td> 
+    <td>0.76</td> 
+    <td>0.21</td> 
+    <td>0.94</td>
+</tr> 
+<tr> 
+    <td>2</td> 
+    <td>inspir.ai robotics</td> 
+    <td>0.70</td> 
+    <td>0.71</td> 
+    <td>0.70</td> 
+    <td>0.91</td>
+</tr> 
+<tr> 
+    <td>3</td> 
+    <td>VO2021</td> 
+    <td>0.59</td> 
+    <td>0.69</td> 
+    <td>0.53</td> 
+    <td>0.78</td>
+</tr> 
+<tr> 
+    <td>4</td> 
+    <td>Differentiable SLAM-net</td> 
+    <td>0.47</td> 
+    <td>0.60</td> 
+    <td>1.74</td> 
+    <td>0.65</td>
+</tr> 
+</table>
 
->📋  Include a table of results from your paper, and link back to the leaderboard for clarity and context. If your main result is a figure, include that figure and link to the command or notebook to reproduce it. 
-
-
-## Contributing
-
->📋  Pick a licence and describe how to contribute to your code repository. 
-
-
-
-
-[//]: # (# pointgoal-navigation)
-
-[//]: # ()
-[//]: # (### Development environment setup)
-
-[//]: # (Development environment and dataset for Gibson PointNav may be set up by running `./pointgoal_navigation_install.sh`.)
-
-[//]: # ()
-[//]: # (After the installation process is complete, link the gibson scene dataset to)
-
-[//]: # (the `<path to pointgoal-navigation>/data/scene_datasets`.)
-
-[//]: # ()
-[//]: # (```shell)
-
-[//]: # (ln -s <path to scene datasets> <path to pointgoal-navigation>/data/scene_datasets)
-
-[//]: # (```)
+We have deployed our agent (with no sim2real adaptation) onto a LoCoBot. It achieves 11%Success, 71%SoftSPL, 
+and makes it 92% of the way to the goal (SoftSuccess). See 3rd-person videos and mapped routes
+on our [website](https://rpartsey.github.io/pointgoalnav/). 
