@@ -1,7 +1,7 @@
 # Is Mapping Necessary for Realistic PointGoal Navigation? (IMN-RPG)
 
 This repository is the official implementation of 
-[Is Mapping Necessary for Realistic PointGoal Navigation?](https://arxiv.org/). 
+[Is Mapping Necessary for Realistic PointGoal Navigation?](http://arxiv.org/abs/2206.00997). 
 
 ## Requirements
 
