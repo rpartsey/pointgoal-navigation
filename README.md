@@ -416,3 +416,17 @@ the Gibson val split, and achieve the following performance on:
 We have deployed our agent (with no sim2real adaptation) onto a LoCoBot. It achieves 11%Success, 71%SoftSPL, 
 and makes it 92% of the way to the goal (SoftSuccess). See 3rd-person videos and mapped routes
 on our [website](https://rpartsey.github.io/pointgoalnav/). 
+
+
+## Citing
+If you use [IMN-RPG](https://github.com/rpartsey/pointgoal-navigation) in your research, please cite our paper:
+```tex
+@InProceedings{Partsey_2022_CVPR,
+    author    = {Partsey, Ruslan and Wijmans, Erik and Yokoyama, Naoki and Dobosevych, Oles and Batra, Dhruv and Maksymets, Oleksandr},
+    title     = {Is Mapping Necessary for Realistic PointGoal Navigation?},
+    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+    month     = {June},
+    year      = {2022},
+    pages     = {17232-17241}
+}
+```
