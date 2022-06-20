@@ -164,19 +164,19 @@ Checkpoints may be downloaded from Google Drive manually or by using gdown.
 <tr>
     <td>Gibson 4+</td> 
     <td>2.5 Success</td> 
-    <td><a href="">Link</a></td>
+    <td><a href="https://drive.google.com/drive/folders/16Gj1nQP56rwA4l1q4gLsDuRKtbCRbO9F?usp=sharing">Link</a></td>
     <td>Habitat Challenge 2021</td>
 </tr>
 <tr>
     <td>Gibson 0+</td> 
     <td>2.5 SPL</td> 
-    <td><a href="">Link</a></td>
+    <td><a href="https://drive.google.com/drive/folders/1BfwBLwyN84S-oQw54Fqdn8RWPMvH4gQU?usp=sharing">Link</a></td>
     <td>Habitat Challenge 2021</td>
 </tr> 
 <tr>
     <td>HM3D-MP3D-Gibson 0+</td> 
     <td>2.5 SPL</td> 
-    <td><a href="">Link</a></td>
+    <td><a href="https://drive.google.com/drive/folders/16KiFjb_KosQkIgBUGUYQInTFebiTuPDi?usp=sharing">Link</a></td>
     <td>Sim2real</td>
 </tr> 
 </table>
